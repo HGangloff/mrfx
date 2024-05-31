@@ -7,7 +7,7 @@ import jax.numpy as jnp
 from jaxtyping import Float, Int, Array
 import equinox as eqx
 
-from mrfx._abstract import AbstractMarkovRandomFieldModel
+from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 
 
 class Potts(AbstractMarkovRandomFieldModel):

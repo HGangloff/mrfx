@@ -6,8 +6,8 @@ import jax
 import jax.numpy as jnp
 from jaxtyping import Int, Float, Key, Array
 import equinox as eqx
-from mrfx._models import AbstractMarkovRandomFieldModel
-from mrfx._samplers import get_neigh
+from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+from mrfx.samplers._utils import get_neigh
 
 
 class GibbsSampler(eqx.Module):
