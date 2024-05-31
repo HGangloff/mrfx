@@ -1,0 +1,10 @@
+__pycache__
+*/__pycache__
+
+# pip stuff we don't want to track
+*.egg-info
+build/
+
+# IPython notebook stuffs
+.ipynb_checkpoints/
+
