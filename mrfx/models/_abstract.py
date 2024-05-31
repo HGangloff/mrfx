@@ -3,7 +3,7 @@ Abstract MRF model
 """
 
 import abc
-from jaxtyping import Float, Int, Array
+from jaxtyping import Float, Int, Array, Key
 import equinox as eqx
 
 
@@ -18,4 +18,8 @@ class AbstractMarkovRandomFieldModel(eqx.Module):
 
     @abc.abstractmethod
     def potential_values(self, neigh_values: Array) -> Array:
+        raise NotImplementedError
+
+    @abs.abstractmethod
+    def sample(self, potential_values: Array, key: Key) -> Array:
         raise NotImplementedError
