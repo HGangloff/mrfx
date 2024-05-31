@@ -4,7 +4,7 @@ Classical Gibbs sampler
 
 import jax
 import jax.numpy as jnp
-from jaxtyping import Int, Float, Key, Array
+from jaxtyping import Int, Float, Key, Array, Bool
 import equinox as eqx
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 from mrfx.samplers._utils import get_neigh
@@ -15,11 +15,12 @@ class GibbsSampler(eqx.Module):
 
     lx: Int = eqx.field(static=True)
     ly: Int = eqx.field(static=True)
-    beta: Float
     eps: Float = 0.05
     max_iter: Int = 100
 
-    def run(self, model: AbstractMarkovRandomFieldModel, key: Key):
+    def run(
+        self, model: AbstractMarkovRandomFieldModel, key: Key
+    ) -> tuple[Array, Array, Int]:
         # initialization
         key, subkey = jax.random.split(key, 2)
         X_init = jax.random.randint(
@@ -46,13 +47,11 @@ class GibbsSampler(eqx.Module):
             iterations += 1
             return (model, X_list, iterations, key)
 
-        ## K cannot be an abstract value in what we want to do so we use a wrapper
-        # body_fun_ = lambda args: body_fun(*args, K)
-        # check_convergence_ = lambda args: check_convergence(*args, K)
-
-        init_val = (model, X_list, iterations, key, model.K)
+        init_val = (model, X_list, iterations, key)
         model, X_list, iterations, key = jax.lax.while_loop(
-            self.check_convergence, body_fun, init_val
+            lambda args: self.check_convergence(*args),
+            lambda args: body_fun(*args),
+            init_val,
         )
 
         return X_init, X_list, iterations + 1
@@ -65,7 +64,7 @@ class GibbsSampler(eqx.Module):
         key_permutation: Key,
         X_full: Array = None,
         color_offset: tuple[Int, Int] = None,
-    ):
+    ) -> Array:
         """
         Receives X at previous Gibbs iteration
         Outputs an updated X
@@ -98,7 +97,7 @@ class GibbsSampler(eqx.Module):
         uv: Int,
         X_full: Array,
         color_offset: tuple[Int, Int],
-    ):
+    ) -> tuple[Array, Key]:
         u, v = jnp.unravel_index(uv, (X.shape[0], X.shape[1]))
         u_full_scale, v_full_scale = (
             u * (X_full.shape[0] // X.shape[0]) + color_offset[0],
@@ -120,7 +119,7 @@ class GibbsSampler(eqx.Module):
 
     def check_convergence(
         self, model: AbstractMarkovRandomFieldModel, X_list: Array, iterations: Int, _
-    ):
+    ) -> Bool:
         """
         Function used to assess convergence in the run of a Gibbs sampler
         """

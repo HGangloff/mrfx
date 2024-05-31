@@ -13,11 +13,11 @@ from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 class Potts(AbstractMarkovRandomFieldModel):
     """ """
 
-    beta: Float
     K: Int = eqx.field(static=True)
+    beta: Float
 
     def potential(self, x: Array, neigh_values: Array) -> Float:
-        return (x == neigh_values).sum()
+        return self.beta * (x == neigh_values).sum()
 
     def potential_values(self, neigh_values: Array) -> Array:
         vmap_potential = jax.vmap(self.potential, (0, None))
