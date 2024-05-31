@@ -14,10 +14,10 @@ from mrfx.samplers._utils import get_neigh
 class AbstractGibbsSampler(eqx.Module):
     """ """
 
-    lx: eqx.AbstractVar[Int] = eqx.field(static=True)
-    ly: eqx.AbstractVar[Int] = eqx.field(static=True)
-    eps: eqx.AbstractVar[Float]
-    max_iter: eqx.AbstractVar[Int]
+    lx: Int = eqx.field(static=True)
+    ly: Int = eqx.field(static=True)
+    eps: Float
+    max_iter: Int
 
     def run(
         self, model: AbstractMarkovRandomFieldModel, key: Key
@@ -42,7 +42,9 @@ class AbstractGibbsSampler(eqx.Module):
         def body_fun(model, X_list, iterations, key):
 
             key, subkey = jax.random.split(key, 2)
+            # key, key_permutation = jax.random.split(key, 2)
             X = self.update_one_image(X_list[-1], model, subkey, key_permutation)
+            jax.debug.print("{x}", x=X)
             X_list = jnp.roll(X_list, shift=-1, axis=0)
             X_list = X_list.at[-1].set(X)
             iterations += 1
@@ -106,10 +108,16 @@ class AbstractGibbsSampler(eqx.Module):
                 (None,),
             )
 
+        # maxval
+        max_iter_cond = jnp.array(iterations >= self.max_iter)
+
+        # the logical_or force stopping as soon as we reached max_iter even if
+        # lower than 10
+        # TODO get rid of or make the 10. be a variable
         return jax.lax.cond(
-            iterations > 10,
+            jnp.logical_or(jnp.array(iterations > 10), max_iter_cond),
             lambda args: jnp.logical_and(
-                check_average(args), jnp.array(iterations <= self.max_iter)
+                check_average(args), jnp.logical_not(max_iter_cond)
             ),
             lambda args: True,  # Force while to continue if we do not have at least 10 iterations
             X_list,

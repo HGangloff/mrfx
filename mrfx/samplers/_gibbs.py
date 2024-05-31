@@ -48,7 +48,7 @@ class GibbsSampler(AbstractGibbsSampler):
         key: Key,
         model: AbstractMarkovRandomFieldModel,
         uv: Int,
-    ) -> tuple[Array, Key]:
+    ) -> tuple[tuple[Array, Key], None]:
         u, v = jnp.unravel_index(uv, (self.lx, self.ly))
         neigh_values = get_neigh(X, u, v, self.lx, self.ly)
         key, subkey = jax.random.split(key, 2)

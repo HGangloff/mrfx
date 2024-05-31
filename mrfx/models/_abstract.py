@@ -20,6 +20,6 @@ class AbstractMarkovRandomFieldModel(eqx.Module):
     def potential_values(self, neigh_values: Array) -> Array:
         raise NotImplementedError
 
-    @abs.abstractmethod
+    @abc.abstractmethod
     def sample(self, potential_values: Array, key: Key) -> Array:
         raise NotImplementedError
