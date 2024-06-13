@@ -44,7 +44,7 @@ class AbstractGibbsSampler(eqx.Module):
             key, subkey = jax.random.split(key, 2)
             # key, key_permutation = jax.random.split(key, 2)
             X = self.update_one_image(X_list[-1], model, subkey, key_permutation)
-            jax.debug.print("{x}", x=X)
+            # jax.debug.print("{x}", x=X)
             X_list = jnp.roll(X_list, shift=-1, axis=0)
             X_list = X_list.at[-1].set(X)
             iterations += 1
@@ -66,8 +66,6 @@ class AbstractGibbsSampler(eqx.Module):
         model: AbstractMarkovRandomFieldModel,
         key: Key,
         key_permutation: Key,
-        X_full: Array = None,
-        color_offset: tuple[Int, Int] = None,
     ) -> Array:
         """
         Receives X at previous Gibbs iteration

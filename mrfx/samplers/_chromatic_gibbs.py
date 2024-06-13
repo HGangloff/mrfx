@@ -102,8 +102,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             # Chromatic Gibbs sampler that does not parallelize
             # inside a color and perform full sequential across a color
             X = self.return_sites_sequential(
-                jax.random.split(key, n_sites),
-                # key,
+                key,
                 model,
                 site_permutation,
                 lx_color,
@@ -119,18 +118,23 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             # Sequential return when we cannot parallelize anymore because
             # all the device for parallelization have been taken
 
-            return_sites_sequential_ = lambda keys, sites: self.return_sites_sequential(
-                keys, model, sites, lx_color, ly_color, X_full, color_offset
+            # Note that we dont have lambda keys, sites:...
+            # with in_specs=(P("i"),P("i")) and return_one_site_parallel(keys,
+            # site_permutation) because when passing a list of keys that we
+            # would like to shard we do not converge to a good Gibbs sample
+            # same is true for the sequential_in_color above (see comments in
+            # self.return_sites_sequential...
+            return_sites_sequential_ = lambda sites: self.return_sites_sequential(
+                key, model, sites, lx_color, ly_color, X_full, color_offset
             )
 
             return_one_site_parallel = shard_map(
                 return_sites_sequential_,
                 self.mesh,
-                in_specs=(P("i"), P("i")),
+                in_specs=(P("i")),
                 out_specs=P("i"),
             )
             X = return_one_site_parallel(
-                jax.random.split(key, n_sites),
                 site_permutation,
             )
 
@@ -189,7 +193,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         ly_color: Int,
         X_full: Array,
         color_offset: tuple[Int, Int],
-    ) -> Int:
+    ) -> tuple[None, Int]:
         """ """
         u, v = jnp.unravel_index(uv, (lx_color, ly_color))
         u_full_scale, v_full_scale = (
@@ -200,35 +204,9 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         potential_values = model.potential_values(neigh_values)
         return model.sample(potential_values, key)
 
-    def return_one_site_scan(
-        self,
-        key: Key,
-        model: AbstractMarkovRandomFieldModel,
-        uv: Int,
-        lx_color: Int,
-        ly_color: Int,
-        X_full: Array,
-        color_offset: tuple[Int, Int],
-    ) -> tuple[None, Int]:
-        """
-        To be used inside a scan. We need to return a useless carry and the
-        each sample that will be stacked
-        """
-        u, v = jnp.unravel_index(uv, (lx_color, ly_color))
-        u_full_scale, v_full_scale = (
-            u * (self.lx // lx_color) + color_offset[0],
-            v * (self.ly // ly_color) + color_offset[1],
-        )
-        neigh_values = get_neigh(X_full, u_full_scale, v_full_scale, self.lx, self.ly)
-        potential_values = model.potential_values(neigh_values)
-        key, subkey = jax.random.split(key, 2)
-        x_sample = model.sample(potential_values, subkey)
-        # return key, x_sample #model.sample(potential_values, subkey)
-        return None, model.sample(potential_values, key)
-
     def return_sites_sequential(
         self,
-        keys: Array,
+        key: Array,
         model: AbstractMarkovRandomFieldModel,
         sites: Array,
         lx_color: Int,
@@ -237,28 +215,49 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         color_offset: tuple[Int, Int],
     ) -> Array:
         """
-        Sequentially sample from a stack of (keys, sites)
-        Note that a well formed Key has shape (2,)
+
+        Note that we do not have correct convergence if we pass a series of
+        keys that we iterate over with scan without using the carry
+        (see the code at the end of the function)
         """
-        return_one_site_ = lambda carry, key_uv: self.return_one_site_scan(
-            # carry, model, key_uv, lx_color, ly_color, X_full, color_offset
-            key_uv[:2],
-            model,
-            key_uv[2],
-            lx_color,
-            ly_color,
-            X_full,
-            color_offset,
-        )
-        _, X = jax.lax.scan(
-            return_one_site_,
-            # keys,
-            # sites
-            None,
-            jnp.concatenate([keys, sites[..., None]], axis=1).astype(
-                jnp.uint32
-            ),  # note the conversion that has no
-            # effect for sites but which is needed to preserve the good
-            # type for keys
-        )
+
+        def return_one_site_wrapper(key, site):
+            """
+            Transform return_one_site so that it can be used in a scan function
+            """
+            key, subkey = jax.random.split(key)
+            return key, self.return_one_site(
+                subkey,
+                model,
+                site,
+                lx_color,
+                ly_color,
+                X_full,
+                color_offset,
+            )
+
+        _, X = jax.lax.scan(return_one_site_wrapper, key, sites)
+
+        # code when `key` is an array of keys that we would like to iterate
+        # over (the cause is not understood, in practice, Gibbs sampler do not
+        # converge well...)
+        # return_one_site_ = lambda carry, key_uv: (None, self.return_one_site(
+        #    # carry, model, key_uv, lx_color, ly_color, X_full, color_offset
+        #    key_uv[:2],
+        #    model,
+        #    key_uv[2],
+        #    lx_color,
+        #    ly_color,
+        #    X_full,
+        #    color_offset,
+        # ))
+        # _, X = jax.lax.scan(
+        #    return_one_site_,
+        #    None,
+        #    jnp.concatenate([keys, sites[..., None]], axis=1).astype(
+        #        jnp.uint32
+        #    ),  # note the conversion that has no
+        #    # effect for sites but which is needed to preserve the good
+        #    # type for keys
+        # )
         return X
