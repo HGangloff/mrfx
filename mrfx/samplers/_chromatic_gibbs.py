@@ -118,23 +118,24 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             # Sequential return when we cannot parallelize anymore because
             # all the device for parallelization have been taken
 
-            # Note that we dont have lambda keys, sites:...
-            # with in_specs=(P("i"),P("i")) and return_one_site_parallel(keys,
-            # site_permutation) because when passing a list of keys that we
-            # would like to shard we do not converge to a good Gibbs sample
+            # Note that we dont have lambda keys, sites: -> only one key per
+            # sharding
+            # because when passing a list of keys that we
+            #  we do not converge to a good Gibbs sample
             # same is true for the sequential_in_color above (see comments in
             # self.return_sites_sequential...
-            return_sites_sequential_ = lambda sites: self.return_sites_sequential(
-                key, model, sites, lx_color, ly_color, X_full, color_offset
+            return_sites_sequential_ = lambda key, sites: self.return_sites_sequential(
+                key.squeeze(), model, sites, lx_color, ly_color, X_full, color_offset
             )
 
             return_one_site_parallel = shard_map(
                 return_sites_sequential_,
                 self.mesh,
-                in_specs=(P("i")),
+                in_specs=(P("i"), P("i")),
                 out_specs=P("i"),
             )
             X = return_one_site_parallel(
+                jax.random.split(key, jax.local_device_count()),
                 site_permutation,
             )
 
