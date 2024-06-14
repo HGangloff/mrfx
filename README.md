@@ -5,7 +5,7 @@ Discrete Markov Random Fields with JAX for regular lattices (images). Trying to 
 
 :warning: Under heavy development. Check out the notebook
 
-![timings](https://github.com/HGangloff/mrfx/tree/main/illustrations/time_update_one_image.png?raw=true)
+![timings](./illustrations/time_update_one_image.png)
 
 # Documentation
 
