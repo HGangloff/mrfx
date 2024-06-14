@@ -3,12 +3,13 @@ Chromatic Gibbs sampler
 """
 
 import jax
+from jax import jit
 import jax.numpy as jnp
-from jaxtyping import Int, Float, Key, Array, Bool
-import equinox as eqx
 from jax.sharding import Mesh, PartitionSpec as P
 from jax.experimental import mesh_utils
 from jax.experimental.shard_map import shard_map
+from jaxtyping import Int, Float, Key, Array
+import equinox as eqx
 
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
@@ -26,8 +27,8 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
     n_devices: Int = None
 
     # all the init=False fields are set in __post_init__
-    devices: Array = eqx.field(init=False)
-    mesh: Mesh = eqx.field(init=False)
+    devices: Array = eqx.field(static=True, init=False)
+    mesh: Mesh = eqx.field(static=True, init=False)
 
     def __post_init__(self):
         if self.color_update_type in [
@@ -42,6 +43,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             self.devices = None
             self.mesh = None
 
+    @jit
     def update_one_image(
         self,
         X: Array,
@@ -80,6 +82,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         # )
         return X
 
+    @jit
     def update_one_color(
         self,
         X: Array,
@@ -185,6 +188,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         X = X[jnp.argsort(site_permutation)]
         return X.reshape(lx_color, ly_color)
 
+    @jit
     def return_one_site(
         self,
         key: Key,
@@ -205,6 +209,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         potential_values = model.potential_values(neigh_values)
         return model.sample(potential_values, key)
 
+    @jit
     def return_sites_sequential(
         self,
         key: Array,

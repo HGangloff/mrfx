@@ -3,6 +3,7 @@ Classical Gibbs sampler
 """
 
 import jax
+from jax import jit
 import jax.numpy as jnp
 from jaxtyping import Int, Float, Key, Array
 import equinox as eqx
@@ -19,6 +20,7 @@ class GibbsSampler(AbstractGibbsSampler):
     eps: Float
     max_iter: Int
 
+    @jit
     def update_one_image(
         self,
         X: Array,
@@ -42,6 +44,7 @@ class GibbsSampler(AbstractGibbsSampler):
         )
         return carry[0]
 
+    @jit
     def update_one_site(
         self,
         X: Array,
