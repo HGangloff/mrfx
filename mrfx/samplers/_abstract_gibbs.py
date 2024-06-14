@@ -30,11 +30,12 @@ class AbstractGibbsSampler(eqx.Module):
 
         key, key_permutation = jax.random.split(key, 2)
 
-        iterations_stored = 20 + 1
+        n_it_for_cv = 10  # we use the pixelwise averaging over the last 10
+        # iterations to assess convergence
 
         key, subkey = jax.random.split(key, 2)
         X_list = jax.random.randint(
-            subkey, (iterations_stored, self.lx, self.ly), minval=0, maxval=model.K
+            subkey, (n_it_for_cv + 1, self.lx, self.ly), minval=0, maxval=model.K
         )
         X_list = X_list.at[-1].set(X_init)
         iterations = 0
@@ -83,16 +84,20 @@ class AbstractGibbsSampler(eqx.Module):
         Function used to assess convergence in the run of a Gibbs sampler
         """
 
+        def stop_while_loop_message(msg):
+            jax.debug.print(f"Stopping Gibbs sampler, cause: {msg}")
+            return False
+
         def check_average(X_list):
-            X_10_prev = jnp.array(X_list[:-1])
+            X_n_prev = jnp.array(X_list[:-1])
             X = X_list[-1]
-            X_10_prev = X_10_prev.reshape(X_10_prev.shape[0], -1)
-            # we find the most frequent value for each site over the 10 last simulations
+            X_n_prev = X_n_prev.reshape(X_n_prev.shape[0], -1)
+            # we find the most frequent value for each site over the n last simulations
             # we use a bincount applied along on axis
             # We flatten the array because along_axis can only have one axis
             u, indices = jnp.unique(
-                X_10_prev.T, return_inverse=True, size=model.K
-            )  # note the tranpose, we count on the axis of size 10
+                X_n_prev.T, return_inverse=True, size=model.K
+            )  # note the tranpose, we count on the axis of size n
             most_frequent_val = u[
                 jnp.argmax(
                     jnp.apply_along_axis(jnp.bincount, 1, indices, length=model.K),
@@ -101,7 +106,9 @@ class AbstractGibbsSampler(eqx.Module):
             ]  # adapted for JAX from https://stackoverflow.com/a/12300214
             return jax.lax.cond(
                 (most_frequent_val != X.flatten()).mean() < self.eps,
-                lambda _: False,  # Stop while loop when converged
+                lambda _: stop_while_loop_message(
+                    "Convergence criterion " "is reached"
+                ),  # Stop while loop when converged
                 lambda _: True,  # Continue while loop when not converged
                 (None,),
             )
@@ -109,13 +116,21 @@ class AbstractGibbsSampler(eqx.Module):
         # maxval
         max_iter_cond = jnp.array(iterations >= self.max_iter)
 
+        def check_max_iter(i):
+            return jax.lax.cond(
+                i >= self.max_iter,
+                lambda _: stop_while_loop_message("Max iterations reached"),
+                lambda _: True,
+                None,
+            )
+
         # the logical_or force stopping as soon as we reached max_iter even if
-        # lower than 10
-        # TODO get rid of or make the 10. be a variable
+        # lower than n
         return jax.lax.cond(
-            jnp.logical_or(jnp.array(iterations > 10), max_iter_cond),
-            lambda args: jnp.logical_and(
-                check_average(args), jnp.logical_not(max_iter_cond)
+            jnp.logical_or(jnp.array(iterations > X_list.shape[0] - 1), max_iter_cond),
+            lambda args: jax.tree.reduce(
+                lambda x, y: jnp.logical_and(jnp.array(x), jnp.array(y)),
+                (check_average(args), check_max_iter(iterations)),
             ),
             lambda args: True,  # Force while to continue if we do not have at least 10 iterations
             X_list,
