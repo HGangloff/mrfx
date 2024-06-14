@@ -31,5 +31,5 @@ dependencies = ["numpy", "jax", "equinox"]
 notebook = ["jupyter", "matplotlib"]
 
 [project.urls]
-homepage = "https://example.com/"
-repository = "https://example.com/"
+homepage = "https://github.com/HGangloff/mrfx"
+repository = "https://github.com/HGangloff/mrfx"

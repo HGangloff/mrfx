@@ -1,19 +1,13 @@
 mrfx
-=====
+====
 
-Markov Random Fields with JAX.
+Discrete Markov Random Fields with JAX for regular lattices (images). Trying to get the most of JAX for the computational tasks
 
-# Installation
+:warning: Under heavy development. Check out the notebook
 
-Install the latest version with pip
-
-```bash
-pip install mrfx
-```
+![timings](https://github.com/HGangloff/mrfx/tree/main/illustrations/time_update_one_image.png?raw=true)
 
 # Documentation
-
-
 
 # Contributing
 
@@ -33,7 +27,3 @@ pre-commit install
 ```
 
 * Open a merge request once you are done with your changes.
-
-# Contributors & references
-
-*Active*: Hugo Gangloff
