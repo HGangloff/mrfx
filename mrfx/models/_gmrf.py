@@ -18,4 +18,4 @@ class GMRF(eqx.Module):
     def __post_init__(self):
         if self.sigma is None:
             # force a field with unit variance
-            self.sigma = 1 / jnp.sqrt(4 * jnp.pi * self.kappa ** 2)
+            self.sigma = 1 #/ jnp.sqrt(4 * jnp.pi * self.kappa ** 2)

@@ -7,10 +7,10 @@ from jax import jit
 import jax.numpy as jnp
 from jaxtyping import Int, Float, Key, Array
 import equinox as eqx
+import scipy
 
 from mrfx.models._gmrf import GMRF
 from mrfx.models._gum import GUM
-from mrfx.samplers._utils import get_vertices
 
 
 class SpectralSamplerGMRF(eqx.Module):
@@ -22,7 +22,7 @@ class SpectralSamplerGMRF(eqx.Module):
 
     def sample_one_loc(self, omega: Float[Array, "n_bands dim"], phi: Float[Array, "n_bands"], model: GMRF, x: Float[Array, "dim"]) -> Float:
         temp = jnp.exp(1j * (omega.T @ x + phi))
-        return model.sigma * jnp.sqrt(2 / self.n_bands) * (
+        return model.sigma * jnp.sqrt(2 / self.n_bands) * ( # NOTE do we need to mult by sigma here
             jnp.sum(jnp.real(temp), axis=0)
         )
 
@@ -61,35 +61,43 @@ class SpectralSamplerGMRF(eqx.Module):
         v_sample_one_loc = jax.vmap(self.sample_one_loc, (None, None, None, 0))
         return v_sample_one_loc(omega, phi, model, stacked_sites).reshape((self.lx, self.ly))
 
+    #def get_covariance_matrix_image(
+    #    self, model: GMRF, lx:Int = None, ly:Int = None
+    #) -> Float[Array, "lx*ly lx*ly"]:
+    #    if lx is None or ly is None:
+    #        lx = self.lx
+    #        ly = self.ly
+    #    if model.dim != 2:
+    #        raise ValueError("Cannot use get_covariance_matrix_image for model whose dimension !=2")
+    #    if lx is None or ly is None:
+    #        raise ValueError("lx and ly must not be None to use get_covariance_matrix_image")
+    #    covar = jnp.empty((lx * ly, lx * ly))
 
-class SpectralSamplerGUM(eqx.Module):
-    """
-    Sampling a GUM with internal spectral samplings for GMRF
-    """
+    #    for i in range(lx * ly):
+    #        for j in range(lx * ly):
+    #            if i < j:
+    #                covar = covar.at[i, j].set(
+    #                    eval_matern_covariance(model.sigma, model.nu,
+    #                        model.kappa, i - j)
+    #                )
+    #    return covar + covar.T + jnp.eye(lx * ly)
 
-    n_bands: Int = eqx.field(static=True, kw_only=True)
-    lx: Int = eqx.field(static=True, default=None, kw_only=True)
-    ly: Int = eqx.field(static=True, default=None, kw_only=True)
+    #def get_covariance_matrix_neighborhood(
+    #    self, model: GMRF, neigh_size:Int = 8
+    #) -> Float[Array, "neigh_size neigh_size"]:
+    #    if neigh_size == 8:
+    #        n = 1
+    #    else:
+    #        raise NotImplementedError("neigh_size not covered")
+    #    if model.dim != 2:
+    #        raise ValueError("Cannot use get_covariance_matrix_image for model whose dimension !=2")
+    #    covar = jnp.empty(((n - (-n) + 1) ** 2, (n - (-n) + 1) ** 2))
 
-    def sample_image(self, model: GUM, key: Key) -> Float[Array, "lx ly"]:
-        if model.dim != 2:
-            raise ValueError("Cannot use sample_image for model whose dimension !=2")
-        if self.lx is None or self.ly is None:
-            raise ValueError("lx and ly must not be None to use sample_image")
-        gmrf = GMRF(kappa=model.kappa, dim=2) # dim is fixed since we want to
-        gmrf_sampler = SpectralSamplerGMRF(n_bands=self.n_bands, lx=self.lx,
-                ly=self.ly)
-        subkeys = jax.random.split(key, model.K - 1)
-        z = jnp.stack([gmrf_sampler.sample_image(gmrf, subkeys[k]) for k in
-            range(model.K - 1)], axis=0)
-        vertices = get_vertices(model.K)
-        z_fl = z.reshape(model.K - 1, self.lx * self.ly)
-
-        dists = jnp.stack([
-            jnp.linalg.norm(z_fl - vertices[v].reshape((-1, 1)),axis=0) for v in
-                range(model.K)], axis=0)
- 
-        closest = jnp.argmin(dists, axis=0)
-        X = closest.reshape(self.lx, self.ly)
-        return X
-
+    #    pairs = jnp.dstack(jnp.meshgrid(jnp.arange(-n, n + 1),
+    #        jnp.arange(-n, n + 1))).reshape(-1, 2)
+    #    dists = scipy.spatial.distance.cdist(pairs, pairs)
+    #    return jnp.nan_to_num(
+    #        eval_matern_covariance(model.sigma, model.nu, model.kappa,
+    #            dists[..., None]),
+    #        nan=1.0
+    #    )
