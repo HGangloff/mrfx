@@ -4,6 +4,7 @@ Fourier sampling of GMRF
 
 import jax
 import jax.numpy as jnp
+import numpy as np
 from jaxtyping import Int, Float, Key, Array
 import equinox as eqx
 
@@ -20,18 +21,13 @@ class FFTSamplerGMRF(eqx.Module):
     ly: Int = eqx.field(static=True, default=None, kw_only=True)
 
     def get_base(self, model: GMRF) -> Float[Array, "lx ly"]:
-        b = jnp.zeros((self.lx, self.ly))
-        
-        # TODO improve
-        for x in range(self.lx):
-            for y in range(self.ly):
-                #b = b.at[x, y].set(eval_exp_covariance(model.sigma, 10, x=jnp.array([0., x]),
-                #                                 y=jnp.array([0., y]),
-                #                                 lx=self.lx, ly=self.ly))
-                b = b.at[x, y].set(eval_matern_covariance(model.sigma, model.nu,
-                                                 model.kappa, x=jnp.array([0., x]),
-                                                 y=jnp.array([0., y]),
+        ind = jnp.dstack(jnp.meshgrid(jnp.arange(self.lx),
+                                      jnp.arange(self.ly))).reshape((-1, 2))
+        v_eval = jax.vmap(lambda x_y: eval_matern_covariance(model.sigma, model.nu,
+                                                 model.kappa, x1=0., x2=x_y[0],
+                                                          y1=0., y2=x_y[1], 
                                                  lx=self.lx, ly=self.ly))
+        b = v_eval(ind).reshape((self.lx, self.ly))
         return b
 
     def get_base_invert_numerical(self, b: Float[Array, "lx ly"]) -> Float[Array, "lx ly"]:
@@ -53,7 +49,11 @@ class FFTSamplerGMRF(eqx.Module):
         """
         Sample image with Fourier sampling
         """
+        import time
+        start=time.time()
         base = self.get_base(model)
+        end=time.time()
+        print("get_base=", end-start)
         base = base.at[0, 0].set(1.)
         base_invert = self.get_base_invert_numerical(base)
         key1, key2 = jax.random.split(key, 2)

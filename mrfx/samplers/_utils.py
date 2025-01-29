@@ -5,6 +5,9 @@ Some utility functions
 import jax
 import jax.numpy as jnp
 import scipy
+import numpy as np
+import scipy.special
+from jax import custom_jvp, pure_callback, vmap
 
 
 def get_neigh(X, u, v, lx, ly):
@@ -48,41 +51,73 @@ def get_vertices(K):
     return vertices
 
 
-def euclidean_dist_torus(x, y, lx, ly):
-    """ Euclidean distance on the torus """
-    return jnp.sqrt(min(jnp.abs(x[0] - x[1]), lx - jnp.abs(x[0] - x[1])) ** 2 +
-                   min(jnp.abs(y[0] - y[1]), ly - jnp.abs(y[0] - y[1])) ** 2)
+def euclidean_dist_torus(x1, x2, y1, y2, lx, ly):
+    '''
+    '''
+    return jnp.sqrt(jnp.min(jnp.array([abs(x1 - x2), lx - abs(x1 - x2)])) ** 2 +
+                   jnp.min(jnp.array([abs(y1 - y2), ly - abs(y1 - y2)])) ** 2)
 
-def eval_matern_covariance(sigma, nu, kappa, x=None, y=None, h=None, lx=None, ly=None):
+def eval_matern_covariance(sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
     """ If lx and ly are not None, this is matern distance is computed on the
     torus. Specify either x and y the two points or their distance h"""
-    if (x is None or y is None) and h is None:
+    if (x1 is None or y1 is None) and h is None:
         raise ValueError("(x,y) or h must be specified")
-    if (x is not None and y is not None) and h is not None:
+    if (x1 is not None and y1 is not None) and h is not None:
         raise ValueError("(x,y) and h cannot be specified together")
     if lx is not None and ly is not None:
-        sc_h = kappa * euclidean_dist_torus(x, y, lx, ly)
+        sc_h = kappa * euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
     else:
         if h is None:
-            sc_h = kappa * jnp.linalg.norm(x - y, axis=-1)
+            sc_h = kappa * jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
         else:
             sc_h = kappa * jnp.linalg.norm(h, axis=-1)
     return sigma ** 2 / jnp.exp(jax.scipy.special.gammaln(nu)) / (2
-            ** (nu - 1)) * ((sc_h) ** nu) * scipy.special.kv(nu, sc_h)
+            ** (nu - 1)) * ((sc_h) ** nu) * kv(nu, sc_h)
 
-def eval_exp_covariance(sigma, r, x=None, y=None, h=None, lx=None, ly=None):
+def eval_exp_covariance(sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
     """ If lx and ly are not None, this is matern distance is computed on the
     torus. Specify either x and y the two points or their distance h"""
-    if (x is None or y is None) and h is None:
-        raise ValueError("(x,y) or h must be specified")
-    if (x is not None and y is not None) and h is not None:
-        raise ValueError("(x,y) and h cannot be specified together")
-    if lx is not None and ly is not None:
-        h =  euclidean_dist_torus(x, y, lx, ly)
-    else:
-        if h is None:
-            h = jnp.linalg.norm(x - y, axis=-1)
-        else:
-            h = jnp.linalg.norm(h, axis=-1)
-    return sigma ** 2 * jnp.exp(- h / r)
+    #if (x is None or y is None) and h is None:
+    #    raise ValueError("(x,y) or h must be specified")
+    #if (x is not None and y is not None) and h is not None:
+    #    raise ValueError("(x,y) and h cannot be specified together")
+    #if lx is not None and ly is not None:
+    h =  euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
+    #else:
+    #    if h is None:
+    #        h = np.linalg.norm(x - y, axis=-1)
+    #    else:
+    #        h = np.linalg.norm(h, axis=-1)
+    return sigma ** 2 * np.exp(- h / r)
 
+def generate_modified_bessel(function, sign):
+    """function is Kv and Iv"""
+
+    @custom_jvp
+    def cv(v, x):
+        return pure_callback(
+            lambda vx: function(*vx),
+            x,
+            (v, x),
+            vectorized=True,
+        )
+
+    @cv.defjvp
+    def cv_jvp(primals, tangents):
+        v, x = primals
+        dv, dx = tangents
+        primal_out = cv(v, x)
+
+        # https://dlmf.nist.gov/10.6 formula 10.6.1
+        tangents_out = jax.lax.cond(
+            v == 0,
+            lambda: sign * cv(v + 1, x),
+            lambda: 0.5 * (cv(v - 1, x) + cv(v + 1, x)),
+        )
+
+        return primal_out, tangents_out * dx
+
+    return cv
+
+
+kv = generate_modified_bessel(scipy.special.kv, sign=-1)
