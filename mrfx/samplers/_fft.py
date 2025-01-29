@@ -49,11 +49,7 @@ class FFTSamplerGMRF(eqx.Module):
         """
         Sample image with Fourier sampling
         """
-        import time
-        start=time.time()
         base = self.get_base(model)
-        end=time.time()
-        print("get_base=", end-start)
         base = base.at[0, 0].set(1.)
         base_invert = self.get_base_invert_numerical(base)
         key1, key2 = jax.random.split(key, 2)
