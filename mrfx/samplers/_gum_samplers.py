@@ -31,7 +31,7 @@ class GUMSampler(eqx.Module):
             raise ValueError("Cannot use sample_image for model whose dimension !=2")
         if self.lx is None or self.ly is None:
             raise ValueError("lx and ly must not be None to use sample_image")
-        gmrf = GMRF(kappa=model.kappa, dim=2) # dim is fixed since we want to
+        gmrf = GMRF(kappa=model.kappa, nu=model.nu, r=model.r, dim=2) # dim is fixed since we want to
         if self.method == "spectral":
             if self.n_bands is None:
                 raise ValueError("n_bands must be provided for spectral sampling")

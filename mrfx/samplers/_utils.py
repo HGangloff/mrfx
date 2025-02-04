@@ -77,18 +77,20 @@ def eval_matern_covariance(sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None,
 def eval_exp_covariance(sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
     """ If lx and ly are not None, this is matern distance is computed on the
     torus. Specify either x and y the two points or their distance h"""
-    #if (x is None or y is None) and h is None:
-    #    raise ValueError("(x,y) or h must be specified")
-    #if (x is not None and y is not None) and h is not None:
-    #    raise ValueError("(x,y) and h cannot be specified together")
-    #if lx is not None and ly is not None:
-    h =  euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
-    #else:
-    #    if h is None:
-    #        h = np.linalg.norm(x - y, axis=-1)
-    #    else:
-    #        h = np.linalg.norm(h, axis=-1)
-    return sigma ** 2 * np.exp(- h / r)
+    if (x1 is None or y1 is None) and h is None:
+        raise ValueError("(x,y) or h must be specified")
+    if (x1 is not None and y1 is not None) and h is not None:
+        raise ValueError("(x,y) and h cannot be specified together")
+    if lx is not None and ly is not None:
+        h = euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
+    else:
+        if h is None:
+            h = jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
+        else:
+            h = jnp.linalg.norm(h, axis=-1)
+    res = sigma ** 2 * jnp.exp(- h ** 2 / r)
+    #jax.debug.print("{x}", x=res)
+    return jax.lax.cond(res < 1e-6, lambda _: 0., lambda _: res, (None,))
 
 def generate_modified_bessel(function, sign):
     """function is Kv and Iv"""

@@ -23,8 +23,13 @@ class FFTSamplerGMRF(eqx.Module):
     def get_base(self, model: GMRF) -> Float[Array, "lx ly"]:
         ind = jnp.dstack(jnp.meshgrid(jnp.arange(self.lx),
                                       jnp.arange(self.ly))).reshape((-1, 2))
-        v_eval = jax.vmap(lambda x_y: eval_matern_covariance(model.sigma, model.nu,
-                                                 model.kappa, x1=0., x2=x_y[0],
+        #v_eval = jax.vmap(lambda x_y: eval_matern_covariance(model.sigma, model.nu,
+        #                                         model.kappa, x1=0., x2=x_y[0],
+        #                                                  y1=0., y2=x_y[1], 
+        #                                         lx=self.lx, ly=self.ly))
+        v_eval = jax.vmap(lambda x_y: eval_exp_covariance(model.sigma,
+                                                          model.r,
+                                                            x1=0., x2=x_y[0],
                                                           y1=0., y2=x_y[1], 
                                                  lx=self.lx, ly=self.ly))
         b = v_eval(ind).reshape((self.lx, self.ly))
@@ -37,11 +42,11 @@ class FFTSamplerGMRF(eqx.Module):
         '''
         B = jnp.fft.fft2(b, norm='ortho')
         #print(B)
-        #mask = B.real > 1e-6
-        #iB = jnp.zeros_like(B)
-        #iB = iB.at[mask].set(jnp.power(B[mask], -1))
-        #iB = iB.at[mask == 0].set(iB[mask].max())
-        iB = jnp.power(B,-1)
+        mask = B.real > 1e-6
+        iB = jnp.zeros_like(B)
+        iB = iB.at[mask].set(jnp.power(B[mask], -1))
+        iB = iB.at[mask == 0].set(iB[mask].max())
+        #iB = jnp.power(B,-1)
         b_invert = 1 / (self.lx * self.ly) * jnp.real(jnp.fft.ifft2(iB, norm='ortho'))
         return b_invert
 
