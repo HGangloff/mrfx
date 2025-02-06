@@ -42,11 +42,11 @@ class FFTSamplerGMRF(eqx.Module):
         '''
         B = jnp.fft.fft2(b, norm='ortho')
         #print(B)
-        mask = B.real > 1e-6
-        iB = jnp.zeros_like(B)
-        iB = iB.at[mask].set(jnp.power(B[mask], -1))
-        iB = iB.at[mask == 0].set(iB[mask].max())
-        #iB = jnp.power(B,-1)
+        #mask = B.real > 1e-6
+        #iB = jnp.zeros_like(B)
+        #iB = iB.at[mask].set(jnp.power(B[mask], -1))
+        #iB = iB.at[mask == 0].set(iB[mask].max())
+        iB = jnp.power(B,-1)
         b_invert = 1 / (self.lx * self.ly) * jnp.real(jnp.fft.ifft2(iB, norm='ortho'))
         return b_invert
 

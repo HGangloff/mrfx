@@ -41,8 +41,8 @@ class SpectralSamplerGMRF(eqx.Module):
         xi = 1 / (2 * gamma)
         multR_plus = jnp.sqrt(2 * xi)
         threshold = jnp.quantile(multR_plus, quantile)
-        multR = multR_plus[multR_plus < threshold]
-        omega = multR[jnp.nonzero(multR_plus < threshold, size=self.n_bands)] * jax.random.normal(
+        #multR = multR_plus[multR_plus < threshold]
+        omega = multR_plus[jnp.nonzero(multR_plus < threshold, size=self.n_bands)] * jax.random.normal(
             key=subkey[1],
             shape=(model.dim, self.n_bands)
         )
