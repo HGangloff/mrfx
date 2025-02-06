@@ -41,8 +41,8 @@ class SpectralSamplerGMRF(eqx.Module):
         xi = 1 / (2 * gamma)
         multR_plus = jnp.sqrt(2 * xi)
         threshold = jnp.quantile(multR_plus, quantile)
-        #multR = multR_plus[multR_plus < threshold]
-        omega = multR_plus[jnp.nonzero(multR_plus < threshold, size=self.n_bands)] * jax.random.normal(
+        multR = multR_plus[multR_plus < threshold]
+        omega = multR[jnp.nonzero(multR_plus < threshold, size=self.n_bands)] * jax.random.normal(
             key=subkey[1],
             shape=(model.dim, self.n_bands)
         )
@@ -58,8 +58,13 @@ class SpectralSamplerGMRF(eqx.Module):
         omega, phi = self.sample_omega_phi(model, key)
         stacked_sites = jnp.dstack(jnp.meshgrid(jnp.arange(self.lx),
             jnp.arange(self.ly))).reshape(-1, 2)
-        v_sample_one_loc = jax.vmap(self.sample_one_loc, (None, None, None, 0))
-        return v_sample_one_loc(omega, phi, model, stacked_sites).reshape((self.lx, self.ly))
+        # v_sample_one_loc = jax.vmap(self.sample_one_loc, (None, None, None, 0))
+        # return v_sample_one_loc(omega, phi, model, stacked_sites).reshape((self.lx, self.ly))
+        # NOTE below -> lax.map version (i.e. sequential vmap with a given batch size to
+        # avoid memory overflow on small GPU for bigger sized images and when
+        # n_bands increases)
+        return jax.lax.map(lambda x: self.sample_one_loc(omega, phi, model, x),
+                           stacked_sites, batch_size=256*256).reshape((self.lx, self.ly))
 
     #def get_covariance_matrix_image(
     #    self, model: GMRF, lx:Int = None, ly:Int = None

@@ -10,19 +10,33 @@ import scipy.special
 from jax import custom_jvp, pure_callback, vmap
 
 
-def get_neigh(X, u, v, lx, ly):
-    top = X[(u + 1) % ly, v]
-    bot = X[(u - 1) % ly, v]
+def get_neigh(X, u, v, lx, ly, neigh_size):
+    if neigh_size == 1:
+        # Explicitly avoid padding for this simple neighborhood for speed
+        # efficiency
+        top = X[(u + 1) % ly, v]
+        bot = X[(u - 1) % ly, v]
 
-    t_r = X[(u + 1) % ly, (v + 1) % lx]
-    t_l = X[(u + 1) % ly, (v - 1) % lx]
-    b_r = X[(u - 1) % ly, (v + 1) % lx]
-    b_l = X[(u - 1) % ly, (v - 1) % lx]
+        t_r = X[(u + 1) % ly, (v + 1) % lx]
+        t_l = X[(u + 1) % ly, (v - 1) % lx]
+        b_r = X[(u - 1) % ly, (v + 1) % lx]
+        b_l = X[(u - 1) % ly, (v - 1) % lx]
 
-    right = X[u, (v + 1) % lx]
-    left = X[u, (v - 1) % lx]
+        right = X[u, (v + 1) % lx]
+        left = X[u, (v - 1) % lx]
 
-    return jnp.array([left, t_l, top, t_r, right, b_r, bot, b_l])
+        return jnp.array([left, t_l, top, t_r, right, b_r, bot, b_l])
+    # mode='wrap' does not help convergence as opposed to mode="constant"
+    # Mandatory to pad everytime because a jax.lax.cond could not output
+    # varying shapes
+    X_padded = jnp.pad(X, pad_width=neigh_size, mode='wrap')
+    slice_ = jax.lax.dynamic_slice(
+        X_padded,
+        (u - neigh_size, v - neigh_size),
+        (2 * neigh_size + 1, 2 * neigh_size + 1)
+    )
+    return jnp.delete(slice_, (2 * neigh_size + 1) * neigh_size + neigh_size,
+                    axis=None, assume_unique_indices=True) # axis=None -> operate on flattened array
 
 def get_vertices(K):
     """ Return unitary simplex vertices coordinates for any dimension K-1

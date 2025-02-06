@@ -23,15 +23,15 @@ class FFTSamplerGMRF(eqx.Module):
     def get_base(self, model: GMRF) -> Float[Array, "lx ly"]:
         ind = jnp.dstack(jnp.meshgrid(jnp.arange(self.lx),
                                       jnp.arange(self.ly))).reshape((-1, 2))
-        #v_eval = jax.vmap(lambda x_y: eval_matern_covariance(model.sigma, model.nu,
-        #                                         model.kappa, x1=0., x2=x_y[0],
-        #                                                  y1=0., y2=x_y[1], 
-        #                                         lx=self.lx, ly=self.ly))
-        v_eval = jax.vmap(lambda x_y: eval_exp_covariance(model.sigma,
-                                                          model.r,
-                                                            x1=0., x2=x_y[0],
+        v_eval = jax.vmap(lambda x_y: eval_matern_covariance(model.sigma, model.nu,
+                                                 model.kappa, x1=0., x2=x_y[0],
                                                           y1=0., y2=x_y[1], 
                                                  lx=self.lx, ly=self.ly))
+        #v_eval = jax.vmap(lambda x_y: eval_exp_covariance(model.sigma,
+        #                                                  model.r,
+        #                                                    x1=0., x2=x_y[0],
+        #                                                  y1=0., y2=x_y[1], 
+        #                                         lx=self.lx, ly=self.ly))
         b = v_eval(ind).reshape((self.lx, self.ly))
         return b
 

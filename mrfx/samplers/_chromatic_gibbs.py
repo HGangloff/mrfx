@@ -205,7 +205,8 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             u * (self.lx // lx_color) + color_offset[0],
             v * (self.ly // ly_color) + color_offset[1],
         )
-        neigh_values = get_neigh(X_full, u_full_scale, v_full_scale, self.lx, self.ly)
+        neigh_values = get_neigh(X_full, u_full_scale, v_full_scale, self.lx,
+                                 self.ly, model.neigh_size)
         potential_values = model.potential_values(neigh_values)
         return model.sample(potential_values, key)
 
