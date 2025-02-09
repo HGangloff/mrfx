@@ -188,7 +188,8 @@ def time_complete_sampling(
 
 
 def plot_benchmark(
-    Ks: list, sizes: list, times: list, n_iterations: list = None, title: str = None
+    Ks: list, sizes: list, times: list, n_iterations: list = None, title: str =
+    None, fontsize: int = 10
 ):
     """
 
@@ -210,7 +211,7 @@ def plot_benchmark(
     title
         Optional string for the title of the plot
     """
-
+    plt.rcParams.update({'font.size': fontsize})
     if n_iterations is not None:
         fig, axes = plt.subplots(1, 2)
     else:
@@ -231,4 +232,5 @@ def plot_benchmark(
     axes[0].legend()
     if title is not None:
         plt.title(title)
+    plt.savefig(f"{title}.pdf")
     plt.show()
