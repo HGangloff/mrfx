@@ -5,6 +5,7 @@ Code to benchmark the samplers
 import time
 from math import prod
 from typing import Type
+import pandas as pd
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -25,6 +26,7 @@ def time_update_one_image(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
+    exp_name=None
 ) -> list:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -97,6 +99,12 @@ def time_update_one_image(
             print(f"\n{k=}, {lx=}, {ly=}, {compilation_time=}, {runtime_mean=}")
 
             times[-1].append(runtime_mean)
+    if exp_name is not None:
+        df = pd.DataFrame(
+            {"size":[lx*ly for lx, ly in sizes]} |
+            {Ks[i]:times[i] for i in range(len(Ks))}
+        )
+        df.to_csv(f"{exp_name}.csv", index=False)
     return times
 
 
@@ -109,6 +117,7 @@ def time_complete_sampling(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
+    exp_name=None
 ) -> tuple[list, list]:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -184,6 +193,12 @@ def time_complete_sampling(
 
             times[-1].append(runtime_mean)
             n_iterations[-1].append(n_iter_mean)
+    if exp_name is not None:
+        df = pd.DataFrame(
+                {"size":[lx*ly for lx, ly in sizes]} |
+                {Ks[i]:times[i] for i in range(len(Ks))}
+            )
+        df.to_csv(f"{exp_name}.csv", index=False)
     return times, n_iterations
 
 

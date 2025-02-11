@@ -64,6 +64,10 @@ def get_vertices(K):
     vertices = vertices.at[N].set(-1 / jnp.sqrt(N) * ones)
     return vertices
 
+def euclidean_dist(x1, x2, y1, y2, *args, **kwargs):
+    '''
+    '''
+    return jnp.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
 def euclidean_dist_torus(x1, x2, y1, y2, lx, ly):
     '''
