@@ -117,7 +117,8 @@ def time_complete_sampling(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
-    exp_name=None
+    exp_name=None,
+    return_X=False,
 ) -> tuple[list, list]:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -155,10 +156,16 @@ def time_complete_sampling(
     n_iterations = []
     Ks = np.asarray(Ks)
     times = []
+    if return_X:
+        samples = []
+    else:
+        samples = None
     for k in Ks:
         times.append([])
         n_iterations.append([])
         model = Model(k, **kwargs_model)
+        if return_X:
+            samples.append([])
         for lx, ly in sizes:
             sampler = Sampler(lx, ly, **kwargs_sampler)
 
@@ -173,16 +180,20 @@ def time_complete_sampling(
             end = time.time()
             compilation_time = end - start
 
+            if return_X:
+                samples[-1].append([])
             for r in range(reps):
                 key, subkey = jax.random.split(key, 2)
 
                 start = time.time()
-                X_init, _, n_iter = sampler.run(model, subkey)
+                X_init, X_list, n_iter = sampler.run(model, subkey)
                 X_init.block_until_ready()
                 end = time.time()
                 runtime = end - start
 
                 rep_times.append(runtime)
+                if return_X:
+                    samples[-1][-1].append(X_list[-1])
                 rep_iterations.append(n_iter)
                 print(f"{r+1} ", end="")
             runtime_mean = np.mean(rep_times)
@@ -199,7 +210,7 @@ def time_complete_sampling(
                 {Ks[i]:times[i] for i in range(len(Ks))}
             )
         df.to_csv(f"{exp_name}.csv", index=False)
-    return times, n_iterations
+    return times, n_iterations, samples
 
 
 def plot_benchmark(
