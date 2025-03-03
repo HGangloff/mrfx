@@ -5,6 +5,7 @@ Code to benchmark the samplers
 import time
 from math import prod
 from typing import Type
+import pandas as pd
 import jax
 import jax.numpy as jnp
 import numpy as np
@@ -25,6 +26,7 @@ def time_update_one_image(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
+    exp_name=None
 ) -> list:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -97,6 +99,12 @@ def time_update_one_image(
             print(f"\n{k=}, {lx=}, {ly=}, {compilation_time=}, {runtime_mean=}")
 
             times[-1].append(runtime_mean)
+    if exp_name is not None:
+        df = pd.DataFrame(
+            {"size":[lx*ly for lx, ly in sizes]} |
+            {Ks[i]:times[i] for i in range(len(Ks))}
+        )
+        df.to_csv(f"{exp_name}.csv", index=False)
     return times
 
 
@@ -109,6 +117,8 @@ def time_complete_sampling(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
+    exp_name=None,
+    return_X=False,
 ) -> tuple[list, list]:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -146,10 +156,16 @@ def time_complete_sampling(
     n_iterations = []
     Ks = np.asarray(Ks)
     times = []
+    if return_X:
+        samples = []
+    else:
+        samples = None
     for k in Ks:
         times.append([])
         n_iterations.append([])
         model = Model(k, **kwargs_model)
+        if return_X:
+            samples.append([])
         for lx, ly in sizes:
             sampler = Sampler(lx, ly, **kwargs_sampler)
 
@@ -164,16 +180,20 @@ def time_complete_sampling(
             end = time.time()
             compilation_time = end - start
 
+            if return_X:
+                samples[-1].append([])
             for r in range(reps):
                 key, subkey = jax.random.split(key, 2)
 
                 start = time.time()
-                X_init, _, n_iter = sampler.run(model, subkey)
+                X_init, X_list, n_iter = sampler.run(model, subkey)
                 X_init.block_until_ready()
                 end = time.time()
                 runtime = end - start
 
                 rep_times.append(runtime)
+                if return_X:
+                    samples[-1][-1].append(X_list[-1])
                 rep_iterations.append(n_iter)
                 print(f"{r+1} ", end="")
             runtime_mean = np.mean(rep_times)
@@ -184,11 +204,18 @@ def time_complete_sampling(
 
             times[-1].append(runtime_mean)
             n_iterations[-1].append(n_iter_mean)
-    return times, n_iterations
+    if exp_name is not None:
+        df = pd.DataFrame(
+                {"size":[lx*ly for lx, ly in sizes]} |
+                {Ks[i]:times[i] for i in range(len(Ks))}
+            )
+        df.to_csv(f"{exp_name}.csv", index=False)
+    return times, n_iterations, samples
 
 
 def plot_benchmark(
-    Ks: list, sizes: list, times: list, n_iterations: list = None, title: str = None
+    Ks: list, sizes: list, times: list, n_iterations: list = None, title: str =
+    None, fontsize: int = 10
 ):
     """
 
@@ -210,7 +237,7 @@ def plot_benchmark(
     title
         Optional string for the title of the plot
     """
-
+    plt.rcParams.update({'font.size': fontsize})
     if n_iterations is not None:
         fig, axes = plt.subplots(1, 2)
     else:
@@ -231,4 +258,5 @@ def plot_benchmark(
     axes[0].legend()
     if title is not None:
         plt.title(title)
+    plt.savefig(f"{title}.pdf")
     plt.show()
