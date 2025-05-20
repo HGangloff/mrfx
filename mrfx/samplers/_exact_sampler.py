@@ -65,7 +65,10 @@ class ExactSampler(AbstractSampler):
     def z_recursion(
         self,
         model: AbstractMarkovRandomFieldModel,
-    ) -> Float[Array, " (lx*ly)**(neigh_size/2)"]:  # noqa: F722
+    ) -> tuple[
+        Float[Array, " (lx*ly-lag)*K**(neigh_size/2)"],  # noqa: F722
+        Float[Array, ""],  # noqa: F722
+    ]:
         if model.neigh_size == 1:
             n_neighbors = 8
             lag = self.lx + 1
@@ -97,10 +100,10 @@ class ExactSampler(AbstractSampler):
                 idx1 = [0, -3, -2, -1]
                 idx2 = [0, 1, 2, 3]
                 size = model.K ** (lag - 4)
-            elif config_type == "no_xi_and_nei_no_last":
-                idx1 = [-3, -2]
-                idx2 = [1, 2]
-                size = model.K ** (lag - 2)
+            elif config_type == "xi_and_nei_no_last":
+                idx1 = [0, -3, -2]
+                idx2 = [0, 1, 2]
+                size = model.K ** (lag - 3)
             elif config_type == "nei_only":
                 idx1 = [-3, -2, -1]
                 idx2 = [1, 2, 3]
@@ -145,11 +148,11 @@ class ExactSampler(AbstractSampler):
         assert lag_configurations_idx_with_xi.shape[0] == 2**4
         assert 2**4 * lag_configurations_idx_with_xi.shape[1] == model.K**lag
 
-        lag_configurations_idx_no_xi_no_last_nei = v_get_lag_configurations(
-            nei_configurations, "no_xi_and_nei_no_last"
+        lag_configurations_idx_xi_no_last_nei = v_get_lag_configurations(
+            nei_configurations, "xi_and_nei_no_last"
         )
-        assert lag_configurations_idx_no_xi_no_last_nei.shape[0] == 2**4
-        assert 2**2 * lag_configurations_idx_no_xi_no_last_nei.shape[1] == model.K**lag
+        assert lag_configurations_idx_xi_no_last_nei.shape[0] == 2**4
+        assert 2**3 * lag_configurations_idx_xi_no_last_nei.shape[1] == model.K**lag
 
         lag_configurations_idx_no_xi = v_get_lag_configurations(
             nei_configurations, "nei_only"
@@ -178,7 +181,7 @@ class ExactSampler(AbstractSampler):
         # will be dispatched to the whole z[0]
         # now we look for the 16 values
         v_q = jax.vmap(
-            lambda *args: jnp.exp(model.potential(*args)), (0, 0)
+            lambda *args: model.potential(*args), (0, 0)
         )  # vmap on configurations
         v_v_q = jax.vmap(v_q, (0, None))  # vmap on states of xi
         xis = (
@@ -186,17 +189,20 @@ class ExactSampler(AbstractSampler):
                 (
                     1,
                     nei_configurations.shape[0],
-                )
+                ),
+                dtype=jnp.float16,
             )
-            * jnp.arange(model.K)[:, None]
+            * jnp.arange(model.K, dtype=jnp.float16)[:, None]
         )
-        q = v_v_q(xis, nei_configurations.astype(jnp.float32))
-        z0_values = jnp.sum(q, axis=0)  # those are the 16 values
+        q = v_v_q(xis, nei_configurations.astype(jnp.float16))
+        # NOTE logsumexp
+        z0_values = jax.scipy.special.logsumexp(q, axis=0)  # those are the 16 values
+        # z0_values = jnp.sum(q, axis=0)  # those are the 16 values
 
         # dispatch the values
-        z0 = jnp.zeros((model.K**lag,))
-        for i in range(lag_configurations_idx_no_xi.shape[0]):
-            z0 = z0.at[lag_configurations_idx_no_xi[i]].set(z0_values[i])
+        z0 = jnp.zeros((model.K**lag,), dtype=jnp.float16)
+        for i in range(lag_configurations_idx_with_xi.shape[0]):
+            z0 = z0.at[lag_configurations_idx_with_xi[i]].set(z0_values[i])
         assert jnp.sum(z0 > 0) == model.K**lag  # assert we have filled all
 
         # def get_shifted_lag_configurations_idx(lag_config_inpt):
@@ -231,38 +237,75 @@ class ExactSampler(AbstractSampler):
 
         def scan_fun(carry, _):
             (z_i_1,) = carry
-            for i in range(lag_configurations_idx_no_xi.shape[0]):
-                # need those intersections to explicitly handle the state of xi
-                # ie we do not use lag_configurations_idx_with_xi...
+
+            # vmap version
+            def update_for_a_nei_config(z_i_1, lag_config_idx_xi_no_last_nei, q):
                 z_idx0 = jnp.intersect1d(
                     lag_configurations_idx_xi_0,
-                    lag_configurations_idx_no_xi_no_last_nei[i],
-                    size=model.K ** (lag - 3),
+                    lag_config_idx_xi_no_last_nei,
+                    assume_unique=True,
+                    size=model.K ** (lag - 4),
                 )  # divide the size of lag_configurations_idx_no_xi_no_last_nei
                 # by K since we intersect
                 z_idx1 = jnp.intersect1d(
                     lag_configurations_idx_xi_1,
-                    lag_configurations_idx_no_xi_no_last_nei[i],
-                    size=model.K ** (lag - 3),
+                    lag_config_idx_xi_no_last_nei,
+                    assume_unique=True,
+                    size=model.K ** (lag - 4),
                 )
-                z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]])
+
+                z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]], dtype=z_i_1.dtype)
                 # at all the following indices of z_i_1, ...
-                z_i_1 = z_i_1.at[lag_configurations_idx_no_xi[i]].set(
-                    jnp.sum(q[:, i : i + 1] * z_, axis=0)
-                )
+                # NOTE logsumexp
+                return jax.scipy.special.logsumexp(q[:, None] + z_, axis=0)
+
+            updates = jax.vmap(update_for_a_nei_config, (None, 0, 1))(
+                z_i_1, lag_configurations_idx_xi_no_last_nei, q
+            )
+            for i in range(lag_configurations_idx_with_xi.shape[0]):
+                z_i_1 = z_i_1.at[lag_configurations_idx_with_xi[i]].set(updates[i])
 
             z_i = z_i_1
 
+            ## for version
+            # z_i = z_i_1.copy()
+            # for i in range(lag_configurations_idx_with_xi.shape[0]):
+            #    # need those intersections to explicitly handle the state of xi
+            #    z_idx0 = jnp.intersect1d(
+            #        lag_configurations_idx_xi_0,
+            #        lag_configurations_idx_xi_no_last_nei[i],
+            #        assume_unique=True,
+            #        size=model.K ** (lag - 4),
+            #    )  # divide the size of lag_configurations_idx_no_xi_no_last_nei
+            #    # by K since we intersect
+            #    z_idx1 = jnp.intersect1d(
+            #        lag_configurations_idx_xi_1,
+            #        lag_configurations_idx_xi_no_last_nei[i],
+            #        assume_unique=True,
+            #        size=model.K ** (lag - 4),
+            #    )
+            #    z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]],
+            #                   dtype=z_i_1.dtype)
+            #    # at all the following indices of z_i_1, ...
+            #    # NOTE logsumexp
+            #    z_i = z_i.at[lag_configurations_idx_with_xi[i]].set(
+            #        jax.scipy.special.logsumexp(q[:, i: i + 1] + z_, axis=0)
+            #    )
+            #    # z_i_1 = z_i_1.at[lag_configurations_idx_no_xi[i]].set(
+            #    #    jnp.sum(q[:, i : i + 1] * z_, axis=0)
+            #    # )
+
             return (z_i,), z_i
 
-        _, zi = jax.lax.scan(scan_fun, (z0,), jnp.arange(self.lx * self.ly))
-        print(zi.shape)
-        print(zi[-1, :200])
-
+        _, all_z_i = jax.lax.scan(scan_fun, (z0,), jnp.arange(self.lx * self.ly - lag))
+        z = jax.scipy.special.logsumexp(all_z_i[-1])
+        print(all_z_i[-1, :200])
+        print(z)
+        print(all_z_i.dtype)
         print(nei_configurations.shape)
         print(z0, z0.shape)
 
-        return z0
+        return z, all_z_i
 
     @jit
     def update_one_image(
