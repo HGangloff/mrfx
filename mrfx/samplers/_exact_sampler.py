@@ -77,7 +77,7 @@ class ExactSampler(AbstractSampler):
 
         # Homogeneous case
         nei_configurations = jnp.meshgrid(
-            *((jnp.arange(model.K),) * (n_neighbors // 2))
+            *((jnp.arange(model.K),) * (n_neighbors // 2 + 1))
         )
         nei_configurations = jnp.stack(
             jax.tree.map(jnp.ravel, nei_configurations), axis=-1
@@ -97,17 +97,17 @@ class ExactSampler(AbstractSampler):
             config_type,
         ):
             if config_type == "xi_and_nei":
-                idx1 = [0, -3, -2, -1]
+                idx1 = [0, -4, -3, -2, -1]
+                idx2 = [0, 1, 2, 3, 4]
+                size = model.K ** (lag - 5)
+            elif config_type == "xi_and_nei_no_last":
+                idx1 = [0, -4, -3, -2]
                 idx2 = [0, 1, 2, 3]
                 size = model.K ** (lag - 4)
-            elif config_type == "xi_and_nei_no_last":
-                idx1 = [0, -3, -2]
-                idx2 = [0, 1, 2]
-                size = model.K ** (lag - 3)
             elif config_type == "nei_only":
-                idx1 = [-3, -2, -1]
-                idx2 = [1, 2, 3]
-                size = model.K ** (lag - 3)
+                idx1 = [-4, -3, -2, -1]
+                idx2 = [1, 2, 3, 4]
+                size = model.K ** (lag - 4)
             elif config_type == "xi_only":
                 idx1 = idx2 = [0]
                 size = model.K ** (lag - 1)
@@ -145,20 +145,20 @@ class ExactSampler(AbstractSampler):
         lag_configurations_idx_with_xi = v_get_lag_configurations(
             nei_configurations, "xi_and_nei"
         )
-        assert lag_configurations_idx_with_xi.shape[0] == 2**4
-        assert 2**4 * lag_configurations_idx_with_xi.shape[1] == model.K**lag
+        assert lag_configurations_idx_with_xi.shape[0] == 2**5
+        assert 2**5 * lag_configurations_idx_with_xi.shape[1] == model.K**lag
 
         lag_configurations_idx_xi_no_last_nei = v_get_lag_configurations(
             nei_configurations, "xi_and_nei_no_last"
         )
-        assert lag_configurations_idx_xi_no_last_nei.shape[0] == 2**4
-        assert 2**3 * lag_configurations_idx_xi_no_last_nei.shape[1] == model.K**lag
+        assert lag_configurations_idx_xi_no_last_nei.shape[0] == 2**5
+        assert 2**4 * lag_configurations_idx_xi_no_last_nei.shape[1] == model.K**lag
 
         lag_configurations_idx_no_xi = v_get_lag_configurations(
             nei_configurations, "nei_only"
         )
-        assert lag_configurations_idx_no_xi.shape[0] == 2**4
-        assert 2**3 * lag_configurations_idx_no_xi.shape[1] == model.K**lag
+        assert lag_configurations_idx_no_xi.shape[0] == 2**5
+        assert 2**4 * lag_configurations_idx_no_xi.shape[1] == model.K**lag
 
         # lag_configurations_idx_xi_only = v_get_lag_configurations(
         #    nei_configurations,
@@ -244,14 +244,14 @@ class ExactSampler(AbstractSampler):
                     lag_configurations_idx_xi_0,
                     lag_config_idx_xi_no_last_nei,
                     assume_unique=True,
-                    size=model.K ** (lag - 4),
+                    size=model.K ** (lag - 5),
                 )  # divide the size of lag_configurations_idx_no_xi_no_last_nei
                 # by K since we intersect
                 z_idx1 = jnp.intersect1d(
                     lag_configurations_idx_xi_1,
                     lag_config_idx_xi_no_last_nei,
                     assume_unique=True,
-                    size=model.K ** (lag - 4),
+                    size=model.K ** (lag - 5),
                 )
 
                 z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]], dtype=z_i_1.dtype)
