@@ -69,6 +69,8 @@ class ExactSampler(AbstractSampler):
         Float[Array, " (lx*ly-lag)*K**(neigh_size/2)"],  # noqa: F722
         Float[Array, ""],  # noqa: F722
     ]:
+        dtype = jnp.float32
+
         if model.neigh_size == 1:
             n_neighbors = 8
             lag = self.lx + 1
@@ -96,6 +98,11 @@ class ExactSampler(AbstractSampler):
             nei_configuration,
             config_type,
         ):
+            # 0 refers to the site itself
+            # 1 refers to the bottom nei
+            # 2 refers to the top right nei
+            # 3 refers to right nei
+            # 4 refers to bot right nei
             if config_type == "xi_and_nei":
                 idx1 = [0, -4, -3, -2, -1]
                 idx2 = [0, 1, 2, 3, 4]
@@ -122,20 +129,6 @@ class ExactSampler(AbstractSampler):
             lag_config_idx = jnp.where(
                 jax.lax.reduce(arr, (True), jnp.logical_and, (0,)), size=size
             )[0]
-
-            # if with_shift and config_type in ["xi_and_nei", "xi_only"]:
-            #    arr_shift = jnp.array(tuple(lag_config[i + 1] == nei_configuration[ii] for i, ii in zip(idx1[:-1], idx2[:-1])))
-            #    lag_config_idx_shift = jnp.where(
-            #        jax.lax.reduce(
-            #            arr_shift,
-            #            (True),
-            #            jnp.logical_and,
-            #            (0,)
-            #            ),
-            #        size=size * model.K
-            #    )[0]
-            # else:
-            #    lag_config_idx_shift = None
 
             return lag_config_idx
 
@@ -190,56 +183,52 @@ class ExactSampler(AbstractSampler):
                     1,
                     nei_configurations.shape[0],
                 ),
-                dtype=jnp.float16,
+                dtype=dtype,
             )
-            * jnp.arange(model.K, dtype=jnp.float16)[:, None]
+            * jnp.arange(model.K, dtype=dtype)[:, None]
         )
-        q = v_v_q(xis, nei_configurations.astype(jnp.float16))
-        # NOTE logsumexp
-        z0_values = jax.scipy.special.logsumexp(q, axis=0)  # those are the 16 values
-        # z0_values = jnp.sum(q, axis=0)  # those are the 16 values
+        # NOTE xi is in nei_configurations but DO NOT count in the potential
+        # hence the -1 for the column
+        nei_configurations = nei_configurations.at[:, 0].set(-1)
+        q = v_v_q(xis, nei_configurations.astype(dtype))
+
+        # q in other configurations (top row, bottom row and right column)
+        nei_configurations_top = nei_configurations.at[:, 2].set(-1)
+        q_top = v_v_q(xis, nei_configurations_top.astype(dtype))
+        # nei_configurations_right = nei_configurations.at[:, 2].set(-1)
+        # nei_configurations_right = nei_configurations_right.at[:, 3].set(-1)
+        # nei_configurations_right = nei_configurations_right.at[:, 4].set(-1)
+        # q_right = v_v_q(xis, nei_configurations_right.astype(dtype))
+        nei_configurations_bot = nei_configurations.at[:, 1].set(-1)
+        nei_configurations_bot = nei_configurations_bot.at[:, 4].set(-1)
+        q_bot = v_v_q(xis, nei_configurations_bot.astype(dtype))
+
+        z0_values = jax.scipy.special.logsumexp(
+            q_top, axis=0
+        )  # those are the 32 values
+        # z0_values = jnp.sum(q, axis=0)  # those are the 32 values
 
         # dispatch the values
-        z0 = jnp.zeros((model.K**lag,), dtype=jnp.float16)
+        z0 = jnp.zeros((model.K**lag,), dtype=dtype)
         for i in range(lag_configurations_idx_with_xi.shape[0]):
             z0 = z0.at[lag_configurations_idx_with_xi[i]].set(z0_values[i])
         assert jnp.sum(z0 > 0) == model.K**lag  # assert we have filled all
 
-        # def get_shifted_lag_configurations_idx(lag_config_inpt):
-        #    """
-        #    Find the indices of the lag_config corresponding to lag_config_inpt
-        #    with a shift to the left. There are K such indices because it lets
-        #    the last element of the configuration free
-        #    """
-        #    arr = jnp.array(tuple(lag_config[i] == lag_config_inpt[i + 1] for i in
-        #                          range(lag - 1)))
-        #    return jnp.where(
-        #        jax.lax.reduce(
-        #            arr,
-        #            (True),
-        #            jnp.logical_and,
-        #            (0,)
-        #            ),
-        #        size=model.K
-        #    )[0]
-
-        # v_get_shifted_lag_config = jax.vmap(
-        #    get_shifted_lag_configurations_idx
-        # )
-        # lag_config_ = jnp.unravel_index(
-        #    lag_configurations_idx_no_xi[0],
-        #    (model.K,) * lag
-        # )
-        # print(len(lag_config))
-        # print(len(lag_config_))
-        # print(lag)
-        # print(v_get_shifted_lag_config(lag_config_).shape)
-
-        def scan_fun(carry, _):
+        def scan_fun(carry, i):
             (z_i_1,) = carry
 
+            # We need to choose q_at_i
+            q_at_i = jax.lax.cond(
+                (i % self.lx != 0) & (i % self.lx != (self.lx - 1)),
+                lambda _: q,
+                lambda _: jax.lax.cond(
+                    i % self.lx == 0, lambda _: q_top, lambda _: q_bot, None
+                ),
+                None,
+            )
+
             # vmap version
-            def update_for_a_nei_config(z_i_1, lag_config_idx_xi_no_last_nei, q):
+            def update_for_a_nei_config(z_i_1, lag_config_idx_xi_no_last_nei, q_at_i):
                 z_idx0 = jnp.intersect1d(
                     lag_configurations_idx_xi_0,
                     lag_config_idx_xi_no_last_nei,
@@ -256,11 +245,11 @@ class ExactSampler(AbstractSampler):
 
                 z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]], dtype=z_i_1.dtype)
                 # at all the following indices of z_i_1, ...
-                # NOTE logsumexp
-                return jax.scipy.special.logsumexp(q[:, None] + z_, axis=0)
+
+                return jax.scipy.special.logsumexp(q_at_i[:, None] + z_, axis=0)
 
             updates = jax.vmap(update_for_a_nei_config, (None, 0, 1))(
-                z_i_1, lag_configurations_idx_xi_no_last_nei, q
+                z_i_1, lag_configurations_idx_xi_no_last_nei, q_at_i
             )
             for i in range(lag_configurations_idx_with_xi.shape[0]):
                 z_i_1 = z_i_1.at[lag_configurations_idx_with_xi[i]].set(updates[i])
@@ -287,17 +276,18 @@ class ExactSampler(AbstractSampler):
             #    z_ = jnp.stack([z_i_1[z_idx0], z_i_1[z_idx1]],
             #                   dtype=z_i_1.dtype)
             #    # at all the following indices of z_i_1, ...
-            #    # NOTE logsumexp
             #    z_i = z_i.at[lag_configurations_idx_with_xi[i]].set(
             #        jax.scipy.special.logsumexp(q[:, i: i + 1] + z_, axis=0)
             #    )
             #    # z_i_1 = z_i_1.at[lag_configurations_idx_no_xi[i]].set(
-            #    #    jnp.sum(q[:, i : i + 1] * z_, axis=0)
+            #    #    jnp.sum(q_at_i[:, i : i + 1] * z_, axis=0)
             #    # )
 
             return (z_i,), z_i
 
-        _, all_z_i = jax.lax.scan(scan_fun, (z0,), jnp.arange(self.lx * self.ly - lag))
+        _, all_z_i = jax.lax.scan(
+            scan_fun, (z0,), jnp.arange(1, self.lx * self.ly - lag)
+        )
         z = jax.scipy.special.logsumexp(all_z_i[-1])
         print(all_z_i[-1, :200])
         print(z)
