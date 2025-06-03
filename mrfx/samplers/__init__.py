@@ -5,3 +5,4 @@ from ._spectral import SpectralSamplerGMRF
 from ._fft import FFTSamplerGMRF
 from ._gum_samplers import GUMSampler
 from ._utils import get_neigh
+from ._exact_sampler import ExactSampler
