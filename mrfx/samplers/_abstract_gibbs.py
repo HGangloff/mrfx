@@ -5,18 +5,18 @@ Abstract method for Gibbs sampler variations
 import abc
 import jax
 import jax.numpy as jnp
+from jax import jit
 from jaxtyping import Int, Float, Key, Array, Bool
 import equinox as eqx
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+from mrfx.samplers._abstract import AbstractSampler
 
 
-class AbstractGibbsSampler(eqx.Module):
+class AbstractGibbsSampler(AbstractSampler):
     """ """
 
-    lx: Int = eqx.field(static=True)
-    ly: Int = eqx.field(static=True)
-    eps: Float
-    max_iter: Int
+    eps: Float = eqx.field(kw_only=True)
+    max_iter: Int = eqx.field(kw_only=True)
     cv_type: str = eqx.field(static=True, default="avg_and_iter", kw_only=True)
 
     def run(
@@ -67,6 +67,7 @@ class AbstractGibbsSampler(eqx.Module):
 
         return X_init, X_list, iterations + 1
 
+    @jit
     @abc.abstractmethod
     def update_one_image(
         self,

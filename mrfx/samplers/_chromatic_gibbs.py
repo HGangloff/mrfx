@@ -19,12 +19,8 @@ from mrfx.samplers._utils import get_neigh
 class ChromaticGibbsSampler(AbstractGibbsSampler):
     """ """
 
-    lx: Int = eqx.field(static=True)
-    ly: Int = eqx.field(static=True)
-    eps: Float
-    max_iter: Int
-    color_update_type: str = eqx.field(static=True)
-    n_devices: Int = None
+    color_update_type: str = eqx.field(static=True, kw_only=True)
+    n_devices: Int = eqx.field(kw_only=True, default=None)
 
     # all the init=False fields are set in __post_init__
     devices: Array = eqx.field(static=True, init=False)
@@ -205,8 +201,9 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
             u * (self.lx // lx_color) + color_offset[0],
             v * (self.ly // ly_color) + color_offset[1],
         )
-        neigh_values = get_neigh(X_full, u_full_scale, v_full_scale, self.lx,
-                                 self.ly, model.neigh_size)
+        neigh_values = get_neigh(
+            X_full, u_full_scale, v_full_scale, self.lx, self.ly, model.neigh_size
+        )
         potential_values = model.potential_values(neigh_values)
         return model.sample(potential_values, key)
 

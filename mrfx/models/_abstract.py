@@ -10,7 +10,10 @@ import equinox as eqx
 class AbstractMarkovRandomFieldModel(eqx.Module):
     """ """
 
-    K: eqx.AbstractVar[Int]
+    K: Int = eqx.field(static=True)
+    neigh_size: Int = eqx.field(
+        kw_only=True, default=1, static=True
+    )  # default is 8 nearest neighbors
 
     @abc.abstractmethod
     def potential(self, x: Array, neigh_values: Array) -> Float:

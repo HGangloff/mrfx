@@ -15,11 +15,6 @@ from mrfx.samplers._utils import get_neigh
 class GibbsSampler(AbstractGibbsSampler):
     """ """
 
-    lx: Int = eqx.field(static=True)
-    ly: Int = eqx.field(static=True)
-    eps: Float
-    max_iter: Int
-
     @jit
     def update_one_image(
         self,
