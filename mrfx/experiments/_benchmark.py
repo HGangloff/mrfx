@@ -67,7 +67,7 @@ def time_update_one_image(
         times.append([])
         model = Model(k, **kwargs_model)
         for lx, ly in sizes:
-            sampler = Sampler(lx, ly, **kwargs_sampler)
+            sampler = Sampler(lx=lx, ly=ly, **kwargs_sampler)
 
             rep_times = []
             print(f"Rep ( / {reps}), ", end="")
@@ -167,7 +167,7 @@ def time_complete_sampling(
         if return_X:
             samples.append([])
         for lx, ly in sizes:
-            sampler = Sampler(lx, ly, **kwargs_sampler)
+            sampler = Sampler(lx=lx, ly=ly, **kwargs_sampler)
 
             rep_times = []
             rep_iterations = []
