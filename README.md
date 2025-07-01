@@ -7,13 +7,15 @@ Discrete Markov Random Fields (and more) with JAX for regular lattices (images).
 
 ## Markov Random Fields
 
-![mrf](./illustrations/MRF.png)
+<img src="./illustrations/MRF.png" height="250" width="250" >
 
-![timings](./illustrations/time_update_one_image.png)
+<img src="./illustrations/time_update_one_image.png" height="150" width="250" >
+
 
 ## Discrete Gaussian Unitary Simplex
 
-![dgum](./illustrations/DGUM.png)
+<img src="./illustrations/DGUM.png" height="250" width="250" >
+
 
 # Documentation
 
