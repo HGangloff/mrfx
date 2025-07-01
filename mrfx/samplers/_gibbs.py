@@ -50,7 +50,7 @@ class GibbsSampler(AbstractGibbsSampler):
         u, v = jnp.unravel_index(uv, (self.lx, self.ly))
         neigh_values = get_neigh(X, u, v, self.lx, self.ly, model.neigh_size)
         key, subkey = jax.random.split(key, 2)
-        potential_values = model.potential_values(neigh_values)
+        potential_values = model.potential_values(neigh_values, u, v)
         x_sample = model.sample(potential_values, subkey)
         X = X.at[u, v].set(x_sample)
         return (X, key), None

@@ -18,6 +18,7 @@ class AbstractGibbsSampler(AbstractSampler):
     eps: Float = eqx.field(kw_only=True)
     max_iter: Int = eqx.field(kw_only=True)
     cv_type: str = eqx.field(static=True, default="avg_and_iter", kw_only=True)
+    verbose: bool = eqx.field(default=True)
 
     def run(
         self, model: AbstractMarkovRandomFieldModel, key: Key
@@ -86,7 +87,12 @@ class AbstractGibbsSampler(AbstractSampler):
         raise NotImplementedError
 
     def stop_while_loop_message(self, msg):
-        jax.debug.print(f"Stopping Gibbs sampler, cause: {msg}")
+        jax.lax.cond(
+            self.verbose,
+            lambda _: jax.debug.print(f"Stopping Gibbs sampler, cause: {msg}"),
+            lambda _: None,
+            None,
+        )
         return False
 
     def check_max_iter(self, i):
