@@ -107,7 +107,6 @@ def eval_exp_covariance(sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx
         else:
             h = jnp.linalg.norm(h, axis=-1)
     res = sigma ** 2 * jnp.exp(- h ** 2 / r)
-    #jax.debug.print("{x}", x=res)
     return jax.lax.cond(res < 1e-6, lambda _: 0., lambda _: res, (None,))
 
 def generate_modified_bessel(function, sign):
