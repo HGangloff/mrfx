@@ -77,18 +77,22 @@ def euclidean_dist_torus(x1, x2, y1, y2, lx, ly):
 
 def eval_matern_covariance(sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
     """ If lx and ly are not None, this is matern distance is computed on the
-    torus. Specify either x and y the two points or their distance h"""
+    torus. Specify either x and y the two points or their distance h
+    We use the definition found in gstools which quotes Rasmussen, C. E., “Gaussian processes in machine learning.”
+    Summer school on machine learning. Springer, Berlin, Heidelberg, (2003)
+    (https://geostat-framework.readthedocs.io/projects/gstools/en/v1.6.0/api/gstools.covmodel.Matern.html)
+    """
     if (x1 is None or y1 is None) and h is None:
         raise ValueError("(x,y) or h must be specified")
     if (x1 is not None and y1 is not None) and h is not None:
         raise ValueError("(x,y) and h cannot be specified together")
     if lx is not None and ly is not None:
-        sc_h = kappa * euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
+        sc_h = jnp.sqrt(nu) * kappa * euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
     else:
         if h is None:
-            sc_h = kappa * jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
+            sc_h = jnp.sqrt(nu) * kappa * jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
         else:
-            sc_h = kappa * jnp.linalg.norm(h, axis=-1)
+            sc_h = jnp.sqrt(nu) * kappa * jnp.linalg.norm(h, axis=-1)
     return sigma ** 2 / jnp.exp(jax.scipy.special.gammaln(nu)) / (2
             ** (nu - 1)) * ((sc_h) ** nu) * kv(nu, sc_h)
 
