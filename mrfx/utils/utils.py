@@ -1,7 +1,10 @@
 import jax.numpy as jnp
 from jaxtyping import Int, Array
 
-def get_most_frequent_values(img_list: Int[Array, " x lx ly"], K: int) -> Int[Array, " lx ly"]:
+
+def get_most_frequent_values(
+    img_list: Int[Array, " x lx ly"], K: int
+) -> Int[Array, " lx ly"]:
     r"""
     img_list is a (n, lx, ly) list of images for example,
     we return the (lx, ly) array where we find the most
@@ -9,6 +12,9 @@ def get_most_frequent_values(img_list: Int[Array, " x lx ly"], K: int) -> Int[Ar
     the n values in input
 
     K is the number of classes to expect
+    We use a bincount applied along on axis
+    We flatten the array because along_axis can only have one axis
+    adapted for JAX from https://stackoverflow.com/a/12300214
     """
     u, indices = jnp.unique(
         img_list.reshape((img_list.shape[0], -1)).T, return_inverse=True, size=K

@@ -8,8 +8,10 @@ import jax.numpy as jnp
 from jax import jit
 from jaxtyping import Int, Float, Key, Array, Bool
 import equinox as eqx
+
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract import AbstractSampler
+from mrfx.utils.utils import get_most_frequent_values
 
 
 class AbstractGibbsSampler(AbstractSampler):
@@ -120,19 +122,8 @@ class AbstractGibbsSampler(AbstractSampler):
         def check_average(X_list):
             X_n_prev = jnp.array(X_list[:-1])
             X = X_list[-1]
-            X_n_prev = X_n_prev.reshape(X_n_prev.shape[0], -1)
-            # we find the most frequent value for each site over the n last simulations
-            # we use a bincount applied along on axis
-            # We flatten the array because along_axis can only have one axis
-            u, indices = jnp.unique(
-                X_n_prev.T, return_inverse=True, size=model.K
-            )  # note the tranpose, we count on the axis of size n
-            most_frequent_val = u[
-                jnp.argmax(
-                    jnp.apply_along_axis(jnp.bincount, 1, indices, length=model.K),
-                    axis=1,
-                )
-            ]  # adapted for JAX from https://stackoverflow.com/a/12300214
+
+            most_frequent_val = get_most_frequent_values(X_n_prev, model.K)
             return jax.lax.cond(
                 (most_frequent_val != X.flatten()).mean() < self.eps,
                 lambda _: self.stop_while_loop_message(
