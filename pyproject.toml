@@ -33,3 +33,7 @@ notebook = ["jupyter", "matplotlib"]
 [project.urls]
 homepage = "https://github.com/HGangloff/mrfx"
 repository = "https://github.com/HGangloff/mrfx"
+
+[tool.ruff]
+[tool.ruff.lint]
+ignore = ["F722", "E741", "E731"]
