@@ -1,4 +1,4 @@
-import mrfx.abstract
-import mrfx.samplers
-import mrfx.models
-import mrfx.estimators
+from mrfx import abstract as abstract
+from mrfx import samplers as samplers
+from mrfx import models as models
+from mrfx import estimators as estimators

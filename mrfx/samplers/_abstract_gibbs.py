@@ -45,7 +45,6 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
             raise ValueError("Unrecognized value for cv_type")
 
         def body_fun(model, X_list, iterations, key):
-
             key, subkey = jax.random.split(key, 2)
             # key, key_permutation = jax.random.split(key, 2)
             X = self.update_one_image(X_list[-1], model, subkey, key_permutation)

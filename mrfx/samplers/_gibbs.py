@@ -5,8 +5,7 @@ Classical Gibbs sampler
 import jax
 from jax import jit
 import jax.numpy as jnp
-from jaxtyping import Int, Float, Key, Array
-import equinox as eqx
+from jaxtyping import Int, Key, Array
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
 from mrfx.samplers._utils import get_neigh

@@ -8,7 +8,7 @@ import jax.numpy as jnp
 from jax.sharding import Mesh, PartitionSpec as P
 from jax.experimental import mesh_utils
 from jax.experimental.shard_map import shard_map
-from jaxtyping import Int, Float, Key, Array
+from jaxtyping import Int, Key, Array
 import equinox as eqx
 
 from mrfx.models._abstract import AbstractMarkovRandomFieldModel
@@ -204,7 +204,9 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         neigh_values = get_neigh(
             X_full, u_full_scale, v_full_scale, self.lx, self.ly, model.neigh_size
         )
-        potential_values = model.potential_values(neigh_values, u_full_scale, v_full_scale)
+        potential_values = model.potential_values(
+            neigh_values, u_full_scale, v_full_scale
+        )
         return model.sample(potential_values, key)
 
     @jit
