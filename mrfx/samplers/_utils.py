@@ -5,9 +5,8 @@ Some utility functions
 import jax
 import jax.numpy as jnp
 import scipy
-import numpy as np
 import scipy.special
-from jax import custom_jvp, pure_callback, vmap
+from jax import custom_jvp, pure_callback
 
 
 def get_neigh(X, u, v, lx, ly, neigh_size):
@@ -29,26 +28,31 @@ def get_neigh(X, u, v, lx, ly, neigh_size):
     # mode='wrap' does not help convergence as opposed to mode="constant"
     # Mandatory to pad everytime because a jax.lax.cond could not output
     # varying shapes
-    X_padded = jnp.pad(X, pad_width=neigh_size, mode='wrap')
+    X_padded = jnp.pad(X, pad_width=neigh_size, mode="wrap")
     slice_ = jax.lax.dynamic_slice(
         X_padded,
         (u - neigh_size, v - neigh_size),
-        (2 * neigh_size + 1, 2 * neigh_size + 1)
+        (2 * neigh_size + 1, 2 * neigh_size + 1),
     )
-    return jnp.delete(slice_, (2 * neigh_size + 1) * neigh_size + neigh_size,
-                    axis=None, assume_unique_indices=True) # axis=None -> operate on flattened array
+    return jnp.delete(
+        slice_,
+        (2 * neigh_size + 1) * neigh_size + neigh_size,
+        axis=None,
+        assume_unique_indices=True,
+    )  # axis=None -> operate on flattened array
+
 
 def get_vertices(K):
-    """ Return unitary simplex vertices coordinates for any dimension K-1
-    
-    Source : Anderson, G., & Thron, C. (2021). 
-    Coordinate Permutation-Invariant Unit N-Simplexes in N dimensions. 
+    """Return unitary simplex vertices coordinates for any dimension K-1
+
+    Source : Anderson, G., & Thron, C. (2021).
+    Coordinate Permutation-Invariant Unit N-Simplexes in N dimensions.
     Available at SSRN 3977222.
     https://papers.ssrn.com/sol3/papers.cfm?abstract_id=3977222
     """
     ######## Vertices coordinates
     # K = 3  # number of classes
-    N = K-1 # dimension of the space
+    N = K - 1  # dimension of the space
 
     vertices = jnp.zeros(shape=(K, N))
     ones = jnp.ones(shape=N)
@@ -56,27 +60,35 @@ def get_vertices(K):
     for j in range(N):
         # unit vector along dimension j
         e_j = jnp.zeros(shape=N)
-        e_j = e_j.at[j].set(1.)
-        
-        v_j = jnp.sqrt((N + 1) / N) * e_j - 1 / (N * jnp.sqrt(N)) * (jnp.sqrt(N + 1) - 1) * ones
+        e_j = e_j.at[j].set(1.0)
+
+        v_j = (
+            jnp.sqrt((N + 1) / N) * e_j
+            - 1 / (N * jnp.sqrt(N)) * (jnp.sqrt(N + 1) - 1) * ones
+        )
         vertices = vertices.at[j].set(v_j)
 
     vertices = vertices.at[N].set(-1 / jnp.sqrt(N) * ones)
     return vertices
 
+
 def euclidean_dist(x1, x2, y1, y2, *args, **kwargs):
-    '''
-    '''
+    """ """
     return jnp.sqrt((x1 - x2) ** 2 + (y1 - y2) ** 2)
 
-def euclidean_dist_torus(x1, x2, y1, y2, lx, ly):
-    '''
-    '''
-    return jnp.sqrt(jnp.min(jnp.array([abs(x1 - x2), lx - abs(x1 - x2)])) ** 2 +
-                   jnp.min(jnp.array([abs(y1 - y2), ly - abs(y1 - y2)])) ** 2)
 
-def eval_matern_covariance(sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
-    """ If lx and ly are not None, this is matern distance is computed on the
+def euclidean_dist_torus(x1, x2, y1, y2, lx, ly):
+    """ """
+    return jnp.sqrt(
+        jnp.min(jnp.array([abs(x1 - x2), lx - abs(x1 - x2)])) ** 2
+        + jnp.min(jnp.array([abs(y1 - y2), ly - abs(y1 - y2)])) ** 2
+    )
+
+
+def eval_matern_covariance(
+    sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None
+):
+    """If lx and ly are not None, this is matern distance is computed on the
     torus. Specify either x and y the two points or their distance h
     We use the definition found in gstools which quotes Rasmussen, C. E., “Gaussian processes in machine learning.”
     Summer school on machine learning. Springer, Berlin, Heidelberg, (2003)
@@ -90,14 +102,24 @@ def eval_matern_covariance(sigma, nu, kappa, x1=None, x2=None, y1=None, y2=None,
         sc_h = jnp.sqrt(nu) * kappa * euclidean_dist_torus(x1, x2, y1, y2, lx, ly)
     else:
         if h is None:
-            sc_h = jnp.sqrt(nu) * kappa * jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
+            sc_h = (
+                jnp.sqrt(nu) * kappa * jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
+            )
         else:
             sc_h = jnp.sqrt(nu) * kappa * jnp.linalg.norm(h, axis=-1)
-    return sigma ** 2 / jnp.exp(jax.scipy.special.gammaln(nu)) / (2
-            ** (nu - 1)) * ((sc_h) ** nu) * kv(nu, sc_h)
+    return (
+        sigma**2
+        / jnp.exp(jax.scipy.special.gammaln(nu))
+        / (2 ** (nu - 1))
+        * ((sc_h) ** nu)
+        * kv(nu, sc_h)
+    )
 
-def eval_exp_covariance(sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None):
-    """ If lx and ly are not None, this is matern distance is computed on the
+
+def eval_exp_covariance(
+    sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx=None, ly=None
+):
+    """If lx and ly are not None, this is matern distance is computed on the
     torus. Specify either x and y the two points or their distance h"""
     if (x1 is None or y1 is None) and h is None:
         raise ValueError("(x,y) or h must be specified")
@@ -110,8 +132,9 @@ def eval_exp_covariance(sigma, r, x1=None, x2=None, y1=None, y2=None, h=None, lx
             h = jnp.sum((x1 - x2) ** 2 + (y1 - y2) ** 2, axis=-1)
         else:
             h = jnp.linalg.norm(h, axis=-1)
-    res = sigma ** 2 * jnp.exp(- h ** 2 / r)
-    return jax.lax.cond(res < 1e-6, lambda _: 0., lambda _: res, (None,))
+    res = sigma**2 * jnp.exp(-(h**2) / r)
+    return jax.lax.cond(res < 1e-6, lambda _: 0.0, lambda _: res, (None,))
+
 
 def generate_modified_bessel(function, sign):
     """function is Kv and Iv"""

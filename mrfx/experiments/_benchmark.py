@@ -26,7 +26,7 @@ def time_update_one_image(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
-    exp_name=None
+    exp_name=None,
 ) -> list:
     """
     Get a time estimate of the call to `update_one_image` for a given sampler
@@ -94,15 +94,15 @@ def time_update_one_image(
                 runtime = end - start
 
                 rep_times.append(runtime)
-                print(f"{r+1} ", end="")
+                print(f"{r + 1} ", end="")
             runtime_mean = np.mean(rep_times)
             print(f"\n{k=}, {lx=}, {ly=}, {compilation_time=}, {runtime_mean=}")
 
             times[-1].append(runtime_mean)
     if exp_name is not None:
         df = pd.DataFrame(
-            {"size":[lx*ly for lx, ly in sizes]} |
-            {Ks[i]:times[i] for i in range(len(Ks))}
+            {"size": [lx * ly for lx, ly in sizes]}
+            | {Ks[i]: times[i] for i in range(len(Ks))}
         )
         df.to_csv(f"{exp_name}.csv", index=False)
     return times
@@ -195,7 +195,7 @@ def time_complete_sampling(
                 if return_X:
                     samples[-1][-1].append(X_list[-1])
                 rep_iterations.append(n_iter)
-                print(f"{r+1} ", end="")
+                print(f"{r + 1} ", end="")
             runtime_mean = np.mean(rep_times)
             n_iter_mean = np.mean(rep_iterations)
             print(
@@ -206,16 +206,20 @@ def time_complete_sampling(
             n_iterations[-1].append(n_iter_mean)
     if exp_name is not None:
         df = pd.DataFrame(
-                {"size":[lx*ly for lx, ly in sizes]} |
-                {Ks[i]:times[i] for i in range(len(Ks))}
-            )
+            {"size": [lx * ly for lx, ly in sizes]}
+            | {Ks[i]: times[i] for i in range(len(Ks))}
+        )
         df.to_csv(f"{exp_name}.csv", index=False)
     return times, n_iterations, samples
 
 
 def plot_benchmark(
-    Ks: list, sizes: list, times: list, n_iterations: list = None, title: str =
-    None, fontsize: int = 10
+    Ks: list,
+    sizes: list,
+    times: list,
+    n_iterations: list = None,
+    title: str = None,
+    fontsize: int = 10,
 ):
     """
 
@@ -237,7 +241,7 @@ def plot_benchmark(
     title
         Optional string for the title of the plot
     """
-    plt.rcParams.update({'font.size': fontsize})
+    plt.rcParams.update({"font.size": fontsize})
     if n_iterations is not None:
         fig, axes = plt.subplots(1, 2)
     else:

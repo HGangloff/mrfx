@@ -5,6 +5,7 @@ Gaussian Markov Random Field model
 from jaxtyping import Float, Int
 import equinox as eqx
 
+
 class GMRF(eqx.Module):
     """ """
 
@@ -17,13 +18,12 @@ class GMRF(eqx.Module):
     def __post_init__(self):
         if self.sigma is None:
             # force a field with unit variance
-            self.sigma = 1 #/ jnp.sqrt(4 * jnp.pi * self.kappa ** 2)
+            self.sigma = 1  # / jnp.sqrt(4 * jnp.pi * self.kappa ** 2)
         if self.nu is None:
-            self.nu = 1.
+            self.nu = 1.0
 
         if self.kappa is None and self.r is None:
             raise ValueError("(kappa, nu) or r must be specified")
 
         if self.kappa is not None and self.nu is not None and self.r is not None:
             raise ValueError("(kappa, nu) or r must be specified but not both")
-

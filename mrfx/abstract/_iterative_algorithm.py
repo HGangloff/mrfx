@@ -14,7 +14,6 @@ from mrfx.utils.utils import get_most_frequent_values
 
 
 class IterativeAlgorithm(eqx.Module):
-
     eps: float = eqx.field(kw_only=True)
     max_iter: int = eqx.field(kw_only=True)
     cv_type: str = eqx.field(static=True, default="avg_and_iter", kw_only=True)
@@ -63,7 +62,7 @@ class IterativeAlgorithm(eqx.Module):
             return jax.lax.cond(
                 (most_frequent_val != X.flatten()).mean() < self.eps,
                 lambda _: self.stop_while_loop_message(
-                    "Convergence criterion " "is reached"
+                    "Convergence criterion is reached"
                 ),  # Stop while loop when converged
                 lambda _: True,  # Continue while loop when not converged
                 (None,),
