@@ -60,7 +60,7 @@ class IterativeAlgorithm(eqx.Module):
 
             most_frequent_val = get_most_frequent_values(X_n_prev, K)
             return jax.lax.cond(
-                (most_frequent_val != X.flatten()).mean() < self.eps,
+                (most_frequent_val != X).mean() < self.eps,
                 lambda _: self.stop_while_loop_message(
                     "Convergence criterion is reached"
                 ),  # Stop while loop when converged
