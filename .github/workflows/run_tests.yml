@@ -28,8 +28,7 @@ jobs:
 
       - name: Checks with ruff
         uses: astral-sh/ruff-action@v3
-        run: ruff check --fix
-        run: ruff format
+        run: ruff check --fix && ruff format
 
       - name: Test with pytest
         run: |
