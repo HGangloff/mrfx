@@ -1,5 +1,5 @@
 import abc
-from typing import TypeAlias, Any, Self
+from typing import TypeAlias, Self
 from jaxtyping import Array, Key
 import equinox as eqx
 
@@ -14,7 +14,7 @@ class AbstractDistribution(eqx.Module):
     (https://github.com/patrick-kidger/equinox/issues/1034)
     """
 
-    params: eqx.AbstractVar[Any]  # should have AnyParams here?
+    params: eqx.AbstractVar[Params | tuple[Params]]  # should have AnyParams here?
 
     def set_params(self, params: Params) -> Self:
         """
@@ -53,11 +53,22 @@ class AbstractConditionalLikelihoodDistribution(AbstractDistribution):
         raise NotImplementedError
 
 
-class AbstractJointDistribution(AbstractDistribution):
+class AbstractJointDistribution(eqx.Module):
     """ """
 
     prior_model: eqx.AbstractVar[AbstractPriorDistribution]
     condition_llkh_model: eqx.AbstractVar[AbstractConditionalLikelihoodDistribution]
+
+    def set_params(self, params: tuple[Params, Params]):
+        new = eqx.tree_at(
+            lambda pt: (pt.prior_model, pt.condition_llkh_model),
+            self,
+            (
+                self.prior_model.set_params(params[0]),
+                self.condition_llkh_model.set_params(params[1]),
+            ),
+        )
+        return new
 
     @abc.abstractmethod
     def estimate_parameters(
@@ -66,19 +77,25 @@ class AbstractJointDistribution(AbstractDistribution):
         condition_llkh_realization: Array,
         *args,
         **kwargs,
-    ) -> Params:
+    ) -> tuple[Params, Params]:
         prior_params = self.prior_model.estimate_parameters(
             prior_realization, *args, **kwargs
         )
         condition_llkh_params = self.condition_llkh_model.estimate_parameters(
             condition_llkh_realization, prior_realization, *args, **kwargs
         )
-        self.params = tuple(*prior_params, *condition_llkh_params)
-        return self.params
+        return prior_params, condition_llkh_params
 
 
 class AbstractPosteriorDistribution(AbstractDistribution):
-    """ """
+    """
+
+    !!! warning
+        The Params object of an AbstractPosteriorDistribution must reflect the
+        order of the Params object of the prior first and of the
+        condition_llkh second. The ordering must be respected inside the Params
+        object too!!!
+    """
 
     @abc.abstractmethod
     def estimate_parameters(
