@@ -4,6 +4,7 @@ Gaussian Iid model
 
 from __future__ import annotations
 
+from dataclasses import InitVar
 from typing import TYPE_CHECKING
 from jaxtyping import Key, Array
 import equinox as eqx
@@ -27,15 +28,31 @@ class GaussianIidParameter(Params):
 class GaussianIid(AbstractConditionalLikelihoodDistribution):
     """ """
 
-    params: GaussianIidParameter = eqx.field(kw_only=True)
+    params: GaussianIidParameter = eqx.field(kw_only=True, default=None)
     prior_model: AbstractPriorDistribution = eqx.field(kw_only=True, static=True)
+    mu: InitVar[float] = eqx.field(default=None)
+    sigma: InitVar[float] = eqx.field(default=None)
+
+    def __post_init__(self, mu=None, sigma=None):
+        """
+        We let the user specify the parameter either via params or (mu and
+        sigma), the latter being less verbose
+        """
+        if self.params is None and (mu is None or sigma is None):
+            raise ValueError("`params` or (`mu` and `sigma`) must be specified")
+        if self.params is not None and (mu is not None or sigma is not None):
+            raise ValueError(
+                "`params` or (`mu` or `sigma`) cannot be specified together"
+            )
+        if self.params is None and (mu is not None and sigma is not None):
+            self.params = GaussianIidParameter(mu=mu, sigma=sigma)
 
     @property
-    def mu(self):
+    def mu(self):  # noqa F811
         return self.params.mu
 
     @property
-    def sigma(self):
+    def sigma(self):  # noqa F811
         return self.params.sigma
 
     def sample(self, prior_realization: Array, key: Key) -> Array:
@@ -62,9 +79,7 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         Evaluate p(y|prior_realization)
         """
         return jax.scipy.stats.norm.pdf(
-            realization,
-            loc=self.params.mu,
-            scale=self.params.sigma
+            realization, loc=self.params.mu, scale=self.params.sigma
         )
 
     def estimate_parameters(

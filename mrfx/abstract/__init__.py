@@ -5,10 +5,12 @@ from ._distributions import (
     AbstractJointDistribution,
     AbstractPosteriorDistribution,
     AbstractConditionalLikelihoodDistribution,
+    Params,
 )
 from ._model import AbstractModel
 
 __all__ = [
+    "Params",
     "IterativeAlgorithm",
     "AbstractSampler",
     "AbstractPriorDistribution",
