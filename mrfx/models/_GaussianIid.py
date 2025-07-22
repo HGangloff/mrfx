@@ -57,6 +57,16 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
             axis=0,
         )
 
+    def evaluate_pdf(self, realization: Array, prior_realization: Array) -> Array:
+        """
+        Evaluate p(y|prior_realization)
+        """
+        return jax.scipy.stats.norm.pdf(
+            realization,
+            loc=self.params.mu,
+            scale=self.params.sigma
+        )
+
     def estimate_parameters(
         self, self_realization: Array, prior_realization: Array
     ) -> Params:

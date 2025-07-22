@@ -207,7 +207,7 @@ class ChromaticGibbsSampler(AbstractGibbsSampler):
         potential_values = model.potential_values(
             neigh_values, u_full_scale, v_full_scale
         )
-        return model.sample(potential_values, key)
+        return model.sample(potential_values, key=key)
 
     @jit
     def return_sites_sequential(

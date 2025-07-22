@@ -9,7 +9,7 @@ import scipy.special
 from jax import custom_jvp, pure_callback
 
 
-def get_neigh(X, u, v, lx, ly, neigh_size):
+def get_neigh(X, u, v, lx, ly, neigh_size, with_X_u_v=False):
     if neigh_size == 1:
         # Explicitly avoid padding for this simple neighborhood for speed
         # efficiency
@@ -24,6 +24,8 @@ def get_neigh(X, u, v, lx, ly, neigh_size):
         right = X[u, (v + 1) % lx]
         left = X[u, (v - 1) % lx]
 
+        if with_X_u_v:
+            return jnp.array([X[u, v], left, t_l, top, t_r, right, b_r, bot, b_l])
         return jnp.array([left, t_l, top, t_r, right, b_r, bot, b_l])
     # mode='wrap' does not help convergence as opposed to mode="constant"
     # Mandatory to pad everytime because a jax.lax.cond could not output
@@ -34,6 +36,8 @@ def get_neigh(X, u, v, lx, ly, neigh_size):
         (u - neigh_size, v - neigh_size),
         (2 * neigh_size + 1, 2 * neigh_size + 1),
     )
+    if with_X_u_v:
+        raise NotImplementedError
     return jnp.delete(
         slice_,
         (2 * neigh_size + 1) * neigh_size + neigh_size,
