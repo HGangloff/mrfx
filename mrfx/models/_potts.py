@@ -49,6 +49,9 @@ class Potts(AbstractPriorDistribution, AbstractMarkovRandomFieldModel):
 
         Derin and Elliott, 1987, Modeling and segmentation of noisy and textured
         images using Gibbs random fields, TPAMI
+
+        Note that this implementation is too memory greedy. It does not scale
+        when K > 2
         """
         lx, ly = self_realization.shape[0], self_realization.shape[1]
         config_xi_and_neighborhoods = jnp.unravel_index(
@@ -81,6 +84,10 @@ class Potts(AbstractPriorDistribution, AbstractMarkovRandomFieldModel):
             arr = jnp.array(
                 tuple(config_xi_and_neighborhoods[i] == config[i] for i in idx)
             )
+            # arr shape is (len(idx), 512), and we know that only
+            # nb=size of them is (1, 1, 1, ..., 1)
+            # eg there is only one config matching the 8 neighbors + xi
+            # there are 2 configs matching the 8 neighbors etc
             return jnp.where(
                 jax.lax.reduce(arr, (True), jnp.logical_and, (0,)), size=size
             )[0]
@@ -145,4 +152,4 @@ class Potts(AbstractPriorDistribution, AbstractMarkovRandomFieldModel):
         a_filtered = jnp.nan_to_num(a, nan=0, posinf=0, neginf=0).flatten()
         dot_a = jnp.dot(a_filtered, a_filtered)
         beta = 1 / dot_a * jnp.dot(a_filtered, b.flatten())
-        return beta
+        return PottsParameter(beta=beta)

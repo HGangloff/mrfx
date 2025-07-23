@@ -93,13 +93,11 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         mu = jnp.array(
             [
                 jnp.nanmean(
-                    prior_realization[
-                        jnp.nonzero(
-                            prior_realization == i,
-                            size=prior_realization.size,
-                            fill_value=jnp.nan,
-                        )
-                    ]
+                    jnp.where(
+                        prior_realization == i,
+                        self_realization,
+                        jnp.nan,
+                    )
                 )
                 for i in range(self.prior_model.K)
             ]
@@ -107,15 +105,13 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         sigma = jnp.array(
             [
                 jnp.nanstd(
-                    prior_realization[
-                        jnp.nonzero(
-                            prior_realization == i,
-                            size=prior_realization.size,
-                            fill_value=jnp.nan,
-                        )
-                    ]
+                    jnp.where(
+                        prior_realization == i,
+                        self_realization,
+                        jnp.nan,
+                    )
                 )
                 for i in range(self.prior_model.K)
             ]
         )
-        return (mu, sigma)
+        return GaussianIidParameter(mu=mu, sigma=sigma)

@@ -17,13 +17,18 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
     """ """
 
     def run(
-        self, model: AbstractMarkovRandomFieldModel, key: Key
+        self,
+        model: AbstractMarkovRandomFieldModel,
+        key: Key,
+        X_init: Array | None = None,
     ) -> tuple[Array, Array, Int]:
         # initialization
         key, subkey = jax.random.split(key, 2)
-        X_init = jax.random.randint(
-            subkey, (self.lx, self.ly), minval=0, maxval=model.K
-        )
+
+        if X_init is None:
+            X_init = jax.random.randint(
+                subkey, (self.lx, self.ly), minval=0, maxval=model.K
+            )
 
         key, key_permutation = jax.random.split(key, 2)
 

@@ -36,25 +36,9 @@ class StochasticExpectationMaximization(IterativeAlgorithm):
     ):
         """ """
 
-        def M_step(prior_model, condition_llkh_model, X, Y):
-            prior_params = prior_model.estimate_parameters(
-                X,
-            )
-            prior_model = prior_model.set_params(prior_params)
-            condition_llkh_params = condition_llkh_model.estimate_parameters(X, Y)
-            condition_llkh_model = condition_llkh_model.set_params(
-                condition_llkh_params
-            )
-            return prior_model, condition_llkh_model
-
-        # initialisation of a first set of parameters
-        prior_model, condition_llkh_model = M_step(
-            prior_model, condition_llkh_model, X_init, Y
-        )
-
-        X = X_init
-        while True:
-            # Stochastic E step
+        def Stochastic_E_step(
+            prior_model, condition_llkh_model, posterior_model, prev_X, key
+        ):
             # The order of the fields in all of the generated methods is the order in which they appear in the class definition.
             prior_params = tuple(
                 getattr(prior_model.params, field.name)
@@ -72,10 +56,45 @@ class StochasticExpectationMaximization(IterativeAlgorithm):
                 prior_params + condition_llkh_params,  # NOTE the ordering
             )
 
-            key, subkey = jax.random.split(key, 2)
-            sampler.run(posterior_model, subkey)
+            return sampler.run(posterior_model, key, prev_X)[1][-1], posterior_model
 
+        def M_step(prior_model, condition_llkh_model, X, Y):
+            prior_params = prior_model.estimate_parameters(
+                X,
+            )
+            prior_model = prior_model.set_params(prior_params)
+            condition_llkh_params = condition_llkh_model.estimate_parameters(Y, X)
+            condition_llkh_model = condition_llkh_model.set_params(
+                condition_llkh_params
+            )
+            return prior_model, condition_llkh_model
+
+        # initialisation of a first set of parameters
+        prior_model, condition_llkh_model = M_step(
+            prior_model, condition_llkh_model, X_init, Y
+        )
+
+        def one_iteration(carry):
+            prior_model, condition_llkh_model, posterior_model, X, key, i = carry
+            jax.debug.print("SEM iteration {i}", i=i)
+
+            # Stochastic E step
+            key, subkey = jax.random.split(key, 2)
+            X, posterior_model = Stochastic_E_step(
+                prior_model, condition_llkh_model, posterior_model, X, subkey
+            )
             # M step
             prior_model, condition_llkh_model = M_step(
                 prior_model, condition_llkh_model, X, Y
             )
+            i = i + 1
+            return (prior_model, condition_llkh_model, posterior_model, X, key, i)
+
+        i = 0
+        carry = (prior_model, condition_llkh_model, posterior_model, X_init, key, i)
+        prior_model, condition_llkh_model, posterior_model, _, _, i = (
+            jax.lax.while_loop(
+                lambda carry: carry[-1] + 1 <= self.max_iter, one_iteration, carry
+            )
+        )
+        return prior_model, condition_llkh_model, posterior_model
