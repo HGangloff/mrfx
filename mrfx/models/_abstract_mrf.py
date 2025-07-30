@@ -8,14 +8,16 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 
+from mrfx.abstract._distributions import AbstractDistribution
 
-class AbstractMarkovRandomFieldModel(eqx.Module):
-    """ """
 
-    K: Int = eqx.field(static=True)
-    neigh_size: Int = eqx.field(
-        kw_only=True, default=1, static=True
-    )  # default is 8 nearest neighbors
+class AbstractMarkovRandomFieldModel(AbstractDistribution):
+    """
+    Following the abstract final design Pattern, no init here, just
+    eqx.AbstractVar"""
+
+    K: eqx.AbstractVar[int]
+    neigh_size: eqx.AbstractVar[int]
 
     @abc.abstractmethod
     def potential(self, x: Array, neigh_values: Array, u: Array, v: Array) -> Float:
@@ -28,7 +30,7 @@ class AbstractMarkovRandomFieldModel(eqx.Module):
         )
         return potential_values / potential_values.sum()
 
-    def sample(self, potential_values: Array, key: Key) -> Int:
+    def sample(self, potential_values: Array, *, key: Key) -> Int:
         r = jax.random.uniform(key)
         potential_cum = jnp.cumsum(potential_values)
         return jnp.count_nonzero(potential_cum < r)

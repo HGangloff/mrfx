@@ -13,7 +13,7 @@ import matplotlib.pyplot as plt
 from jaxtyping import Int, Key, Array
 from numpy.typing import ArrayLike
 
-from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+from mrfx.models._abstract_mrf import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
 
 
@@ -65,7 +65,7 @@ def time_update_one_image(
     times = []
     for k in Ks:
         times.append([])
-        model = Model(k, **kwargs_model)
+        model = Model(K=k, **kwargs_model)
         for lx, ly in sizes:
             sampler = Sampler(lx=lx, ly=ly, **kwargs_sampler)
 
@@ -163,7 +163,7 @@ def time_complete_sampling(
     for k in Ks:
         times.append([])
         n_iterations.append([])
-        model = Model(k, **kwargs_model)
+        model = Model(K=k, **kwargs_model)
         if return_X:
             samples.append([])
         for lx, ly in sizes:
