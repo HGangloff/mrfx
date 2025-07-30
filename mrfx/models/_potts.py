@@ -8,7 +8,7 @@ import jax
 import jax.numpy as jnp
 import equinox as eqx
 
-from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+from mrfx.models._abstract_mrf import AbstractMarkovRandomFieldModel
 from mrfx.abstract._distributions import AbstractPriorDistribution, Params
 from mrfx.samplers._utils import get_neigh
 

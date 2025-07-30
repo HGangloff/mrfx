@@ -14,10 +14,25 @@ from mrfx.utils.utils import get_most_frequent_values
 
 
 class IterativeAlgorithm(eqx.Module):
+    name: eqx.AbstractVar[str]
+
     eps: float = eqx.field(kw_only=True)
     max_iter: int = eqx.field(kw_only=True)
     cv_type: str = eqx.field(static=True, default="avg_and_iter", kw_only=True)
-    verbose: bool = eqx.field(default=True)
+    verbose: bool = eqx.field(default=True, kw_only=True)
+    n_it_for_cv: bool = eqx.field(
+        static=True, default=10, kw_only=True
+    )  # we use the pixelwise averaging over the last 10
+    # iterations (by default) to assess convergence
+
+    @property
+    def check_cv_fun(self):
+        if self.cv_type == "iter_only":
+            return self.check_convergence_iter_only
+        elif self.cv_type == "avg_and_iter":
+            return self.check_convergence_avg_and_iter
+        else:
+            raise ValueError("Unrecognized value for cv_type")
 
     @abc.abstractmethod
     def run(self, *_, **__) -> Any:
@@ -26,7 +41,7 @@ class IterativeAlgorithm(eqx.Module):
     def stop_while_loop_message(self, msg):
         jax.lax.cond(
             self.verbose,
-            lambda _: jax.debug.print(f"Stopping Gibbs sampler, cause: {msg}"),
+            lambda _: jax.debug.print(f"Stopping {self.name}, cause: {msg}"),
             lambda _: None,
             None,
         )

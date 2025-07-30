@@ -11,13 +11,15 @@ from jax.experimental.shard_map import shard_map
 from jaxtyping import Int, Key, Array
 import equinox as eqx
 
-from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+from mrfx.models._abstract_mrf import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
 from mrfx.samplers._utils import get_neigh
 
 
 class ChromaticGibbsSampler(AbstractGibbsSampler):
     """ """
+
+    name: str = eqx.field(static=True, kw_only=True, default="chromatic Gibbs sampler")
 
     color_update_type: str = eqx.field(static=True, kw_only=True)
     n_devices: Int = eqx.field(kw_only=True, default=None)

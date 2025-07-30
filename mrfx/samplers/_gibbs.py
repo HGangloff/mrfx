@@ -5,14 +5,18 @@ Classical Gibbs sampler
 import jax
 from jax import jit
 import jax.numpy as jnp
+import equinox as eqx
 from jaxtyping import Int, Key, Array
-from mrfx.models._abstract import AbstractMarkovRandomFieldModel
+
+from mrfx.models._abstract_mrf import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
 from mrfx.samplers._utils import get_neigh
 
 
 class GibbsSampler(AbstractGibbsSampler):
     """ """
+
+    name: str = eqx.field(static=True, kw_only=True, default="Gibbs sampler")
 
     @jit
     def update_one_image(

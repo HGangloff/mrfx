@@ -53,38 +53,38 @@ class AbstractConditionalLikelihoodDistribution(AbstractDistribution):
         raise NotImplementedError
 
 
-class AbstractJointDistribution(eqx.Module):
-    """ """
-
-    prior_model: eqx.AbstractVar[AbstractPriorDistribution]
-    condition_llkh_model: eqx.AbstractVar[AbstractConditionalLikelihoodDistribution]
-
-    def set_params(self, params: tuple[Params, Params]):
-        new = eqx.tree_at(
-            lambda pt: (pt.prior_model, pt.condition_llkh_model),
-            self,
-            (
-                self.prior_model.set_params(params[0]),
-                self.condition_llkh_model.set_params(params[1]),
-            ),
-        )
-        return new
-
-    @abc.abstractmethod
-    def estimate_parameters(
-        self,
-        prior_realization: Array,
-        condition_llkh_realization: Array,
-        *args,
-        **kwargs,
-    ) -> tuple[Params, Params]:
-        prior_params = self.prior_model.estimate_parameters(
-            prior_realization, *args, **kwargs
-        )
-        condition_llkh_params = self.condition_llkh_model.estimate_parameters(
-            condition_llkh_realization, prior_realization, *args, **kwargs
-        )
-        return prior_params, condition_llkh_params
+# class AbstractJointDistribution(eqx.Module):
+#    """ """
+#
+#    prior_model: eqx.AbstractVar[AbstractPriorDistribution]
+#    condition_llkh_model: eqx.AbstractVar[AbstractConditionalLikelihoodDistribution]
+#
+#    def set_params(self, params: tuple[Params, Params]):
+#        new = eqx.tree_at(
+#            lambda pt: (pt.prior_model, pt.condition_llkh_model),
+#            self,
+#            (
+#                self.prior_model.set_params(params[0]),
+#                self.condition_llkh_model.set_params(params[1]),
+#            ),
+#        )
+#        return new
+#
+#    @abc.abstractmethod
+#    def estimate_parameters(
+#        self,
+#        prior_realization: Array,
+#        condition_llkh_realization: Array,
+#        *args,
+#        **kwargs,
+#    ) -> tuple[Params, Params]:
+#        prior_params = self.prior_model.estimate_parameters(
+#            prior_realization, *args, **kwargs
+#        )
+#        condition_llkh_params = self.condition_llkh_model.estimate_parameters(
+#            condition_llkh_realization, prior_realization, *args, **kwargs
+#        )
+#        return prior_params, condition_llkh_params
 
 
 class AbstractPosteriorDistribution(AbstractDistribution):

@@ -40,20 +40,13 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         """
         if self.params is None and (mu is None or sigma is None):
             raise ValueError("`params` or (`mu` and `sigma`) must be specified")
+        print(mu, sigma)
         if self.params is not None and (mu is not None or sigma is not None):
             raise ValueError(
                 "`params` or (`mu` or `sigma`) cannot be specified together"
             )
         if self.params is None and (mu is not None and sigma is not None):
             self.params = GaussianIidParameter(mu=mu, sigma=sigma)
-
-    @property
-    def mu(self):  # noqa F811
-        return self.params.mu
-
-    @property
-    def sigma(self):  # noqa F811
-        return self.params.sigma
 
     def sample(self, prior_realization: Array, key: Key) -> Array:
         return jax.random.normal(key, shape=prior_realization.shape) * jnp.sum(

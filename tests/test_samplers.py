@@ -14,7 +14,7 @@ def test_ChromaticGibbsSampler():
     key = jax.random.PRNGKey(0)
     K = 3
     beta = 1.0
-    potts_model = Potts(K, beta=beta, neigh_size=1)
+    potts_model = Potts(K=K, beta=beta, neigh_size=1)
 
     key, subkey = jax.random.split(key, 2)
     lx = ly = 6

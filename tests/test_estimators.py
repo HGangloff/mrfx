@@ -6,6 +6,7 @@ from jaxtyping import Float, Array
 from mrfx.samplers import ChromaticGibbsSampler
 from mrfx.models import AbstractMarkovRandomFieldModel
 from mrfx.estimators import mpm_estimator
+from mrfx.abstract import Params
 
 
 def test_mpm():
@@ -52,22 +53,29 @@ def test_mpm():
         ),
     )
 
-    class PosteriorField(AbstractMarkovRandomFieldModel):
-        """ """
-
+    class PosteriorFieldParameters(Params):
         beta: Float = eqx.field(kw_only=True)
         mu: Array = eqx.field(kw_only=True)
         sigma: Array = eqx.field(kw_only=True)
+
+    class PosteriorField(AbstractMarkovRandomFieldModel):
+        """ """
+
+        params: PosteriorFieldParameters = eqx.field(kw_only=True)
+        neigh_size: int = eqx.field(kw_only=True, static=True, default=1)
+        K: int = eqx.field(kw_only=True, static=True)
         Y: Array = eqx.field(kw_only=True)
 
         def potential(self, x: Array, neigh_values: Array, u: Array, v: Array) -> Float:
             return (
-                self.beta * (x == neigh_values).sum(dtype=neigh_values.dtype)
-                - (Y[u, v] - mu[x]) ** 2 / (2 * sigma[x] ** 2)
-                - jnp.log(jnp.sqrt(2 * jnp.pi) * sigma[x])
+                self.params.beta * (x == neigh_values).sum(dtype=neigh_values.dtype)
+                - (self.Y[u, v] - self.params.mu[x]) ** 2
+                / (2 * self.params.sigma[x] ** 2)
+                - jnp.log(jnp.sqrt(2 * jnp.pi) * self.params.sigma[x])
             )
 
-    post_field = PosteriorField(K=K, beta=beta, mu=mu, sigma=sigma, Y=Y)
+    params = PosteriorFieldParameters(beta=beta, mu=mu, sigma=sigma)
+    post_field = PosteriorField(K=K, params=params, Y=Y)
     chro_gibbs = ChromaticGibbsSampler(
         lx=lx, ly=ly, eps=0.05, max_iter=2, color_update_type="sequential_in_color"
     )
