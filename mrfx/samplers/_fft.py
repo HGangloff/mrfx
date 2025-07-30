@@ -37,7 +37,7 @@ class FFTSamplerGMRF(eqx.Module):
                     ly=self.ly,
                 )
             )
-        if (model.nu is None or model.kappa is None) and model.r is not None:
+        elif (model.nu is None or model.kappa is None) and model.r is not None:
             v_eval = jax.vmap(
                 lambda x_y: eval_exp_covariance(
                     model.sigma,
@@ -49,6 +49,12 @@ class FFTSamplerGMRF(eqx.Module):
                     lx=self.lx,
                     ly=self.ly,
                 )
+            )
+        else:
+            raise ValueError(
+                "Bad combination in the instanciation of "
+                "GMRF.kappa, GMRF.nu and GMRF.rho. mrfx cannot determine which "
+                "covariance function to use"
             )
         b = v_eval(ind).reshape((self.lx, self.ly))
         return b

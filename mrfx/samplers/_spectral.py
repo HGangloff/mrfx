@@ -39,6 +39,13 @@ class SpectralSamplerGMRF(eqx.Module):
         """
         Spectral sampling getting rid of high frequencies
         """
+        if model.kappa is None or model.nu is None:
+            raise ValueError(
+                "Spectral sampling is only implement for Matérn"
+                " covariance function, i.e. when GMRF.kappa and GMRF.nu are"
+                " specified."
+            )
+
         subkey = jax.random.split(key, 3)
         quantile = 0.95
         n_samples = int(self.n_bands * (1 + 2 * (1 - quantile)))
