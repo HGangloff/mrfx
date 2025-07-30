@@ -145,7 +145,7 @@ def generate_modified_bessel(function, sign):
             lambda vx: function(*vx),
             x,
             (v, x),
-            vectorized=True,
+            vmap_method="legacy_vectorized",
         )
 
     @cv.defjvp
