@@ -7,7 +7,10 @@ import equinox as eqx
 
 
 class GMRF(eqx.Module):
-    """ """
+    """
+    Either (kappa, nu) are specified and the Matérn covariance function will be
+    used. Or (r) is specified and the exponential covariance function is used.
+    """
 
     kappa: Float = eqx.field(static=True, default=None, kw_only=True)
     nu: Float = eqx.field(static=True, default=None, kw_only=True)
