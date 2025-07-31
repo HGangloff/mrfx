@@ -92,14 +92,31 @@ class Potts(AbstractPriorDistribution, AbstractMarkovRandomFieldModel):
                 jax.lax.reduce(arr, (True), jnp.logical_and, (0,)), size=size
             )[0]
 
+        # NOTE the double vmapping below avoids looping but explodes the memory as
+        # soon as K>2
         v_get_config = jax.vmap(get_config_idx, (0, None))
-        vv_get_config = jax.vmap(v_get_config, (0, None))
+
+        # vv_get_config = jax.vmap(v_get_config, (0, None))
+        # However a full loop approach takes a long time (despite it has no
+        # memory issue)
+        # Hence we chose an hybrid approach: looping on the rows and vmap on
+        # columns
+        def one_row_iteration(carry, i):
+            (all_sites,) = carry
+            config_on_row_i = v_get_config(all_sites[i], "xi_and_nei")
+            return (all_sites,), config_on_row_i
 
         ### 1) Estimate the empirical probabilities of xi+neighborhood
         # below we get, at each site, the id of the neigh config
-        config_each_site = vv_get_config(
-            xi_and_neigh_values_for_each_site, "xi_and_nei"
-        )
+        # NOTE vv_get_config is too memory complex (see note above)
+        # config_each_site = vv_get_config(
+        #    xi_and_neigh_values_for_each_site, "xi_and_nei"
+        # )
+        # Hence loop version
+        config_each_site = jax.lax.scan(
+            one_row_iteration, (xi_and_neigh_values_for_each_site,), jnp.arange(lx)
+        )[1].reshape((lx, ly))
+
         # NOTE the trick to handle results with varying sizes
         # -> we fill with self.K**8 which is an non existing neighborhood
         # config. We have prepared a room for
