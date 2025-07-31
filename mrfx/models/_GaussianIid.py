@@ -52,7 +52,7 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         return jax.random.normal(key, shape=prior_realization.shape) * jnp.sum(
             jnp.array(
                 [
-                    jnp.where(prior_realization == i, self.sigma[i], 0)
+                    jnp.where(prior_realization == i, self.params.sigma[i], 0)
                     for i in range(self.prior_model.K)
                 ]
             ),
@@ -60,7 +60,7 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         ) + jnp.sum(
             jnp.array(
                 [
-                    jnp.where(prior_realization == i, self.mu[i], 0)
+                    jnp.where(prior_realization == i, self.params.mu[i], 0)
                     for i in range(self.prior_model.K)
                 ]
             ),
