@@ -40,7 +40,6 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         """
         if self.params is None and (mu is None or sigma is None):
             raise ValueError("`params` or (`mu` and `sigma`) must be specified")
-        print(mu, sigma)
         if self.params is not None and (mu is not None or sigma is not None):
             raise ValueError(
                 "`params` or (`mu` or `sigma`) cannot be specified together"
@@ -71,9 +70,10 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         """
         Evaluate p(y|prior_realization)
         """
-        return jax.scipy.stats.norm.pdf(
-            realization, loc=self.params.mu, scale=self.params.sigma
-        )
+        raise NotImplementedError
+        # return jax.scipy.stats.norm.pdf(
+        #    realization, loc=self.params.mu, scale=self.params.sigma
+        # )
 
     def estimate_parameters(
         self, self_realization: Array, prior_realization: Array
@@ -81,6 +81,11 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         """
         Order of returned arguments must match definition above because of
         `params.setter`
+
+        **Note** that because of shapes are fixed in jitted code, the jnp.where
+        has fixed size and we need to fill with NaN for the locations that do
+        not belong to a particular prior_realization class. Afterwards, those
+        NaN values are excluded from the estimator computations.
         """
 
         mu = jnp.array(
