@@ -47,16 +47,11 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
         if self.params is None and (mu is not None and sigma is not None):
             self.params = GaussianIidParameter(mu=mu, sigma=sigma)
 
-    def sample(self, prior_realization: Array, key: Key) -> Array:
-        return jax.random.normal(key, shape=prior_realization.shape) * jnp.sum(
-            jnp.array(
-                [
-                    jnp.where(prior_realization == i, self.params.sigma[i], 0)
-                    for i in range(self.prior_model.K)
-                ]
-            ),
-            axis=0,
-        ) + jnp.sum(
+    def mu_x(self, prior_realization: Array) -> Array:
+        """
+        Get mu conditionally to a prior realization
+        """
+        return jnp.sum(
             jnp.array(
                 [
                     jnp.where(prior_realization == i, self.params.mu[i], 0)
@@ -66,14 +61,44 @@ class GaussianIid(AbstractConditionalLikelihoodDistribution):
             axis=0,
         )
 
+    def sigma_x(self, prior_realization: Array) -> Array:
+        """
+        Get sigma conditionally to a prior realization
+        """
+        return jnp.sum(
+            jnp.array(
+                [
+                    jnp.where(prior_realization == i, self.params.sigma[i], 0)
+                    for i in range(self.prior_model.K)
+                ]
+            ),
+            axis=0,
+        )
+
+    def sample(self, prior_realization: Array, key: Key) -> Array:
+        return jax.random.normal(key, shape=prior_realization.shape) * self.sigma_x(
+            prior_realization
+        ) + self.mu_x(prior_realization)
+
     def evaluate_pdf(self, realization: Array, prior_realization: Array) -> Array:
         """
         Evaluate p(y|prior_realization)
         """
-        raise NotImplementedError
-        # return jax.scipy.stats.norm.pdf(
-        #    realization, loc=self.params.mu, scale=self.params.sigma
-        # )
+        return jax.scipy.stats.norm.pdf(
+            realization,
+            loc=self.mu_x(prior_realization),
+            scale=self.sigma_x(prior_realization),
+        )
+
+    def evaluate_logpdf(self, realization: Array, prior_realization: Array) -> Array:
+        """
+        Evaluate log p(y|prior_realization)
+        """
+        return jax.scipy.stats.norm.logpdf(
+            realization,
+            loc=self.mu_x(prior_realization),
+            scale=self.sigma_x(prior_realization),
+        )
 
     def estimate_parameters(
         self, self_realization: Array, prior_realization: Array
