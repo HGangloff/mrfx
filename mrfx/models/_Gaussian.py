@@ -48,35 +48,43 @@ class Gaussian(AbstractConditionalLikelihoodDistribution):
         if self.params is None and (mu is not None and cov is not None):
             self.params = GaussianParameter(mu=mu, cov=cov)
 
-    def sample(self, prior_realization: Array, key: Key) -> Array:
-        keys = jax.random.split(key, self.dim)
+    def mu_x(self, prior_realization: Array) -> Array:
+        """
+        Get mu conditionally to a prior realization
+        """
         return jnp.sum(
             jnp.array(
                 [
-                    jnp.where(
-                        prior_realization[..., None] == i,
-                        jax.random.multivariate_normal(
-                            keys[i],
-                            self.params.mu[i],
-                            self.params.cov[i],
-                            shape=prior_realization.shape,
-                        ),
-                        0,
-                    )
+                    jnp.where(prior_realization == i, self.params.mu[i], 0)
                     for i in range(self.prior_model.K)
                 ]
             ),
             axis=0,
         )
 
+    def sample(self, prior_realization: Array, key: Key) -> Array:
+        return jax.random.multivariate_normal(
+            key,
+            self.mu_x(prior_realization),
+            self.params.cov,
+            shape=prior_realization.shape,
+        )
+
     def evaluate_pdf(self, realization: Array, prior_realization: Array) -> Array:
         """
         Evaluate p(y|prior_realization)
         """
-        raise NotImplementedError
-        # return jax.scipy.stats.norm.pdf(
-        #    realization, loc=self.params.mu, scale=self.params.cov
-        # )
+        return jax.scipy.stats.multivariate_normal.pdf(
+            realization, self.mu_x(prior_realization), self.params.cov
+        )
+
+    def evaluate_logpdf(self, realization: Array, prior_realization: Array) -> Array:
+        """
+        Evaluate log p(y|prior_realization)
+        """
+        return jax.scipy.stats.multivariate_normal.logpdf(
+            realization, self.mu_x(prior_realization), self.params.cov
+        )
 
     def estimate_parameters(
         self, self_realization: Array, prior_realization: Array
