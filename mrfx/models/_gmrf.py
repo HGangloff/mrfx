@@ -12,11 +12,11 @@ class GMRF(eqx.Module):
     used. Or (r) is specified and the exponential covariance function is used.
     """
 
-    kappa: Float = eqx.field(static=True, default=None, kw_only=True)
+    kappa: Float = eqx.field(default=None, kw_only=True)
     nu: Float = eqx.field(static=True, default=None, kw_only=True)
     sigma: Float = eqx.field(static=True, default=None, kw_only=True)
     dim: Int = eqx.field(static=True, default=2, kw_only=True)
-    r: Float = eqx.field(static=True, default=None, kw_only=True)
+    r: Float = eqx.field(default=None, kw_only=True)
 
     def __post_init__(self):
         if self.sigma is None:
