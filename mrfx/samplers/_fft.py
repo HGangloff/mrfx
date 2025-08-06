@@ -67,11 +67,18 @@ class FFTSamplerGMRF(eqx.Module):
         direct formula sing Fourier space
         """
         B = jnp.fft.fft2(b, norm="ortho")
+
+        # Below is a new implementation that is JITtable since it does not rely
+        # on tracer mask which is incompatible with at[].
+        _B = jnp.power(B, -1)
+        iB = jnp.where(B.real > 1e-6, _B, jnp.nan)
+        iB = jnp.where(jnp.isnan(iB), jnp.nanmax(iB), iB)
+
         # print(B)
-        mask = B.real > 1e-6
-        iB = jnp.zeros_like(B)
-        iB = iB.at[mask].set(jnp.power(B[mask], -1))
-        iB = iB.at[mask == 0].set(iB[mask].max())
+        # mask = B.real > 1e-6
+        # iB = jnp.zeros_like(B)
+        # iB = iB.at[mask].set(jnp.power(B[mask], -1))
+        # iB = iB.at[mask == 0].set(iB[mask].max())
         # iB = jnp.power(B,-1)
         b_invert = 1 / (self.lx * self.ly) * jnp.real(jnp.fft.ifft2(iB, norm="ortho"))
         return b_invert
