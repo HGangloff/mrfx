@@ -1,5 +1,38 @@
+from itertools import permutations
+import jax
 import jax.numpy as jnp
 from jaxtyping import Int, Array
+
+
+def find_permutation(pred: Array, truth: Array, K: int) -> tuple[Array, float]:
+    """
+    Find the label segmentation that results in the lowest error. We test all permutations
+    """
+    a = tuple(range(K))
+    all_perms = jnp.array(tuple(permutations(a)))
+
+    def get_err_pred_permuted(perm, pred):
+        perm_pred = jnp.nansum(
+            jnp.array(
+                [jnp.where(pred == idx, label, 0) for idx, label in enumerate(perm)]
+            ),
+            axis=0,
+        )
+        return jnp.count_nonzero(perm_pred.flatten() != truth.flatten()) / truth.size
+
+    v_get_err_pred_permuted = jax.vmap(get_err_pred_permuted, (0, None))
+    errors = v_get_err_pred_permuted(all_perms, pred)
+
+    lowest_err = jnp.min(errors)
+    best_perm = all_perms[jnp.argmin(errors)]
+    best_pred = jnp.nansum(
+        jnp.array(
+            [jnp.where(pred == idx, label, 0) for idx, label in enumerate(best_perm)]
+        ),
+        axis=0,
+    )
+
+    return best_pred, lowest_err
 
 
 def get_most_frequent_values(
