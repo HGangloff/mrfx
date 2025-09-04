@@ -28,7 +28,7 @@ class GUMSampler(eqx.Module):
     lx: Int = eqx.field(static=True, default=None, kw_only=True)
     ly: Int = eqx.field(static=True, default=None, kw_only=True)
 
-    def sample_image(self, model: GUM, key: Key) -> Float[Array, "lx ly"]:
+    def sample_image(self, model: GUM, key: Key) -> tuple[Float[Array, "lx ly"], Array]:
         if model.dim != 2:
             raise ValueError("Cannot use sample_image for model whose dimension !=2")
         if self.lx is None or self.ly is None:
@@ -65,3 +65,9 @@ class GUMSampler(eqx.Module):
         closest = jnp.argmin(dists, axis=0)
         X = closest.reshape(self.lx, self.ly)
         return X, jnp.min(dists, axis=0).reshape(self.lx, self.ly)
+
+    def run(self, model: GUM, key: Key) -> tuple[Float[Array, "lx ly"], Array, None]:
+        """
+        To be compatible with AbstractGibbs.run in benchmark script
+        """
+        return *self.sample_image(model, key), None
