@@ -15,6 +15,8 @@ from numpy.typing import ArrayLike
 
 from mrfx.models._abstract_mrf import AbstractMarkovRandomFieldModel
 from mrfx.samplers._abstract_gibbs import AbstractGibbsSampler
+from mrfx.models._gum import GUM
+from mrfx.samplers._gum_samplers import GUMSampler
 
 
 def time_update_one_image(
@@ -112,8 +114,8 @@ def time_update_one_image(
 
 
 def time_complete_sampling(
-    Sampler: Type[AbstractGibbsSampler],
-    Model: Type[AbstractMarkovRandomFieldModel],
+    Sampler: Type[AbstractGibbsSampler] | Type[GUMSampler],
+    Model: Type[AbstractMarkovRandomFieldModel] | Type[GUM],
     key: Key,
     Ks: ArrayLike,
     sizes: Array,
@@ -181,6 +183,11 @@ def time_complete_sampling(
         # NOTE that we assume that that the GPU is the device and that the GPU idx is 0
         monitor = ZeusMonitor(gpu_indices=[0], sync_execution_with="jax")
 
+    if Model == GUM:
+        if with_n_iter:
+            with_n_iter = False
+            print("with_n_iter is automatically set to False with GUM models")
+
     if with_n_iter:
         n_iterations = []
     else:
@@ -236,6 +243,7 @@ def time_complete_sampling(
                 start = time.time()
                 if with_energy:
                     monitor.begin_window("sampling")
+                # NOTE that for GUM the output arguments change!
                 X_init, X_list, n_iter = run_fun(model, subkey)
                 if with_energy:
                     measurement = monitor.end_window("sampling")
@@ -245,7 +253,10 @@ def time_complete_sampling(
 
                 rep_times.append(runtime)
                 if return_X:
-                    samples[-1][-1].append(X_list[-1])
+                    if Model == GUM:
+                        samples[-1][-1].append(X_init)
+                    else:
+                        samples[-1][-1].append(X_list[-1])
                 if with_n_iter:
                     rep_iterations.append(n_iter)
                 if with_energy:
