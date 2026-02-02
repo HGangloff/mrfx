@@ -25,10 +25,19 @@ classifiers = [
   "Development Status :: 4 - Beta",
   "Programming Language :: Python",
 ]
-dependencies = ["numpy", "jax", "equinox"]
+dependencies = [
+    "numpy",
+    "jax",
+    "equinox",
+    "pre-commit>=4.5.1",
+    "pytest>=9.0.2",
+]
 
 [project.optional-dependencies]
-notebook = ["jupyter", "matplotlib"]
+notebook = ["jupyter", "seaborn", "pandas", "diffrax"]
+gpu_cuda13 = ["jax[cuda13]>=0.8.1"]
+gpu_cuda12 = ["jax[cuda12]>=0.8.1"]
+cpu = ["jax>=0.8.1"]
 
 [project.urls]
 homepage = "https://github.com/HGangloff/mrfx"
