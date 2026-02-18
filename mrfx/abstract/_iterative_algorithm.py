@@ -55,7 +55,7 @@ class IterativeAlgorithm(eqx.Module):
             None,
         )
 
-    def check_convergence_iter_only(self, _, __, iterations: int, ___) -> bool:
+    def check_convergence_iter_only(self, _, __, iterations: int, *args) -> bool:
         """
         Function used to assess convergence in the run of a Gibbs sampler
         """
@@ -63,7 +63,7 @@ class IterativeAlgorithm(eqx.Module):
         return self.check_max_iter(iterations)
 
     def check_convergence_avg_and_iter(
-        self, K: int, X_list: Array, iterations: int, _
+        self, K: int, X_list: Array, iterations: int, *args
     ) -> bool:
         """
         Function used to assess convergence in the run of a Gibbs sampler

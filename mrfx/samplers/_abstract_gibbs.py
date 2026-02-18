@@ -24,9 +24,19 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
         model: AbstractMarkovRandomFieldModel,
         key: Key,
         X_init: Array | None = None,
+        keep_sample_list=False,
     ) -> tuple[Array, Array, Int]:
         # initialization
         key, subkey = jax.random.split(key, 2)
+
+        samples = None
+
+        if keep_sample_list:
+            samples = []
+
+        def insert_sample(sample):
+            nonlocal samples
+            samples.append(jax.device_put(sample, jax.devices("cpu")[0]))
 
         if X_init is None:
             X_init = jax.random.randint(
@@ -40,6 +50,10 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
             subkey, (self.n_it_for_cv + 1, self.lx, self.ly), minval=0, maxval=model.K
         )
         X_list = X_list.at[-1].set(X_init)
+
+        if keep_sample_list:
+            insert_sample(X_init)
+
         iterations = 0
 
         def body_fun(model, X_list, iterations, key):
@@ -50,6 +64,16 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
             X_list = jnp.roll(X_list, shift=-1, axis=0)
             X_list = X_list.at[-1].set(X)
             iterations += 1
+
+            if keep_sample_list:
+                # here we need a non pure callback:
+                # 1) not possible to know in advance when the loop will break,
+                # thus it is too costly to preallocate max_iter images on GPU
+                # and to use it in the carry
+                # 2) so we need the sample list on the cpu but it is not
+                # possible to have a carry which is both on GPU and CPU
+                jax.experimental.io_callback(insert_sample, None, X)
+
             return (model, X_list, iterations, key)
 
         init_val = (model, X_list, iterations, key)
@@ -58,6 +82,9 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
             lambda args: body_fun(*args),
             init_val,
         )
+
+        if keep_sample_list:
+            return X_init, X_list, iterations + 1, jnp.array(samples)
 
         return X_init, X_list, iterations + 1
 
