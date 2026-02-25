@@ -122,6 +122,7 @@ def time_complete_sampling(
     reps: Int,
     kwargs_sampler=None,
     kwargs_model=None,
+    init_callback_fun=None,
     exp_name=None,
     return_X=False,
     with_n_iter=True,
@@ -157,6 +158,9 @@ def time_complete_sampling(
         A dictionary with the remaining arguments needed to instanciate the
         model (passed as keywords arguments): all the arguments apart from
         `K`
+    init_callback_fun
+        A function that takes as input argument a random key and that returns a
+        initial sample or the sampler.
     exp_name
         A string which names the experiment and the file where the results of
         the experiment will be stored
@@ -190,8 +194,10 @@ def time_complete_sampling(
 
     if with_n_iter:
         n_iterations = []
+        n_iterations_std = []
     else:
         n_iterations = None
+        n_iterations_std = None
     Ks = np.asarray(Ks)
     times = []
     times_std = []
@@ -210,6 +216,7 @@ def time_complete_sampling(
         times_std.append([])
         if with_n_iter:
             n_iterations.append([])
+            n_iterations_std.append([])
         if with_energy:
             energies.append([])
             energies_std.append([])
@@ -230,7 +237,12 @@ def time_complete_sampling(
                 run_fun = jax.jit(sampler.run)
             else:
                 run_fun = sampler.run
-            X_init, _, _ = run_fun(model, subkey)
+            if init_callback_fun is not None:
+                key, subkey = jax.random.split(key, 2)
+                X_init = init_callback_fun(subkey, k, lx, ly)
+            else:
+                X_init = None
+            X_init, _, _ = run_fun(model, subkey, X_init=X_init)
             X_init.block_until_ready()
             end = time.time()
             compilation_time = end - start
@@ -244,7 +256,12 @@ def time_complete_sampling(
                 if with_energy:
                     monitor.begin_window("sampling")
                 # NOTE that for GUM the output arguments change!
-                X_init, X_list, n_iter = run_fun(model, subkey)
+                if init_callback_fun is not None:
+                    key, subkey = jax.random.split(key, 2)
+                    X_init = init_callback_fun(subkey, k, lx, ly)
+                else:
+                    X_init = None
+                X_init, X_list, n_iter = run_fun(model, subkey, X_init=X_init)
                 if with_energy:
                     measurement = monitor.end_window("sampling")
                 X_init.block_until_ready()
@@ -274,6 +291,7 @@ def time_complete_sampling(
 
             if with_n_iter:
                 n_iterations[-1].append(np.mean(rep_iterations))
+                n_iterations_std[-1].append(np.std(rep_iterations))
                 print(
                     f"n_iter_mean={n_iterations[-1][-1]}, ",
                     end="",
@@ -296,6 +314,17 @@ def time_complete_sampling(
             | {Ks[i]: times_std[i] for i in range(len(Ks))}
         )
         df.to_csv(f"{exp_name}_time_std.csv", index=False)
+        if with_n_iter:
+            df = pd.DataFrame(
+                {"size": [lx * ly for lx, ly in sizes]}
+                | {Ks[i]: n_iterations[i] for i in range(len(Ks))}
+            )
+            df.to_csv(f"{exp_name}_n_iterations.csv", index=False)
+            df = pd.DataFrame(
+                {"size": [lx * ly for lx, ly in sizes]}
+                | {Ks[i]: n_iterations_std[i] for i in range(len(Ks))}
+            )
+            df.to_csv(f"{exp_name}_n_iterations_std.csv", index=False)
         if with_energy:
             df = pd.DataFrame(
                 {"size": [lx * ly for lx, ly in sizes]}
@@ -307,7 +336,7 @@ def time_complete_sampling(
                 | {Ks[i]: energies_std[i] for i in range(len(Ks))}
             )
             df.to_csv(f"{exp_name}_energy_std.csv", index=False)
-        return times, n_iterations, samples, energies
+            return times, n_iterations, samples, energies
     return times, n_iterations, samples
 
 

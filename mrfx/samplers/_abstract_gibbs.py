@@ -23,8 +23,10 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
         self,
         model: AbstractMarkovRandomFieldModel,
         key: Key,
+        *,
         X_init: Array | None = None,
         keep_sample_list=False,
+        **kwargs,
     ) -> tuple[Array, Array, Int]:
         # initialization
         key, subkey = jax.random.split(key, 2)
@@ -58,9 +60,7 @@ class AbstractGibbsSampler(AbstractSampler, IterativeAlgorithm):
 
         def body_fun(model, X_list, iterations, key):
             key, subkey = jax.random.split(key, 2)
-            # key, key_permutation = jax.random.split(key, 2)
             X = self.update_one_image(X_list[-1], model, subkey, key_permutation)
-            # jax.debug.print("{x}", x=X)
             X_list = jnp.roll(X_list, shift=-1, axis=0)
             X_list = X_list.at[-1].set(X)
             iterations += 1

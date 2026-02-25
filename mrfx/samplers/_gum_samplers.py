@@ -28,7 +28,9 @@ class GUMSampler(eqx.Module):
     lx: Int = eqx.field(static=True, default=None, kw_only=True)
     ly: Int = eqx.field(static=True, default=None, kw_only=True)
 
-    def sample_image(self, model: GUM, key: Key) -> tuple[Float[Array, "lx ly"], Array]:
+    def sample_image(
+        self, model: GUM, key: Key, *args, **kwargs
+    ) -> tuple[Float[Array, "lx ly"], Array]:
         if model.dim != 2:
             raise ValueError("Cannot use sample_image for model whose dimension !=2")
         if self.lx is None or self.ly is None:
