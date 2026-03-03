@@ -76,7 +76,7 @@ def time_update_one_image(
             sampler = Sampler(lx=lx, ly=ly, **kwargs_sampler)
 
             rep_times = []
-            print(f"Rep ( / {reps}), ", end="")
+            print(f"Rep ( / {reps}), ", end="", flush=True)
             key, subkey = jax.random.split(key, 2)
             X = jax.random.randint(subkey, (lx, ly), minval=0, maxval=k)
             key, key_permutation = jax.random.split(key, 2)
@@ -100,9 +100,12 @@ def time_update_one_image(
                 runtime = end - start
 
                 rep_times.append(runtime)
-                print(f"{r + 1} ", end="")
+                print(f"{r + 1} ", end="", flush=True)
             runtime_mean = np.mean(rep_times)
-            print(f"\n{k=}, {lx=}, {ly=}, {compilation_time=}, {runtime_mean=}")
+            print(
+                f"\n{k=}, {lx=}, {ly=}, {compilation_time=}, {runtime_mean=}",
+                flush=True,
+            )
 
             times[-1].append(runtime_mean)
     if exp_name is not None:
@@ -232,7 +235,7 @@ def time_complete_sampling(
             rep_times = []
             rep_iterations = []
             rep_energy = []
-            print(f"Rep ( / {reps}): ", end="")
+            print(f"Rep ( / {reps}): ", end="", flush=True)
             key, subkey = jax.random.split(key, 2)
 
             start = time.time()
@@ -282,7 +285,7 @@ def time_complete_sampling(
                 if with_energy:
                     energy = next(iter(measurement.gpu_energy.values()))
                     rep_energy.append(energy)
-                print(f"{r + 1} ", end="")
+                print(f"{r + 1} ", end="", flush=True)
 
             times[-1].append(np.mean(rep_times))
             times_std[-1].append(np.std(rep_times))
@@ -290,16 +293,14 @@ def time_complete_sampling(
                 f"\n{k=}, {lx=}, {ly=}, {compilation_time=},"
                 f"runtime_mean={times[-1][-1]}, ",
                 end="",
+                flush=True,
             )
 
             if with_n_iter:
                 n_iterations[-1].append(np.mean(rep_iterations))
                 n_iterations_std[-1].append(np.std(rep_iterations))
                 n_iterations_raw[-1].extend(rep_iterations)
-                print(
-                    f"n_iter_mean={n_iterations[-1][-1]}, ",
-                    end="",
-                )
+                print(f"n_iter_mean={n_iterations[-1][-1]}, ", end="", flush=True)
 
             if with_energy:
                 energies[-1].append(np.mean(rep_energy))
