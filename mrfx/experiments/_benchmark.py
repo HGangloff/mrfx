@@ -5,6 +5,7 @@ Code to benchmark the samplers
 import time
 from math import prod
 from typing import Type
+import numpy as onp
 import pandas as pd
 import jax
 import jax.numpy as jnp
@@ -195,6 +196,7 @@ def time_complete_sampling(
     if with_n_iter:
         n_iterations = []
         n_iterations_std = []
+        n_iterations_raw = []
     else:
         n_iterations = None
         n_iterations_std = None
@@ -217,6 +219,7 @@ def time_complete_sampling(
         if with_n_iter:
             n_iterations.append([])
             n_iterations_std.append([])
+            n_iterations_raw.append([])
         if with_energy:
             energies.append([])
             energies_std.append([])
@@ -292,6 +295,7 @@ def time_complete_sampling(
             if with_n_iter:
                 n_iterations[-1].append(np.mean(rep_iterations))
                 n_iterations_std[-1].append(np.std(rep_iterations))
+                n_iterations_raw[-1].extend(rep_iterations)
                 print(
                     f"n_iter_mean={n_iterations[-1][-1]}, ",
                     end="",
@@ -325,6 +329,14 @@ def time_complete_sampling(
                 | {Ks[i]: n_iterations_std[i] for i in range(len(Ks))}
             )
             df.to_csv(f"{exp_name}_n_iterations_std.csv", index=False)
+            # df = pd.DataFrame(
+            #    {"size": [lx * ly for lx, ly in sizes]}
+            #    | {Ks[i]: n_iterations_raw[i] for i in range(len(Ks))}
+            # )
+            n_iterations_raw = jnp.stack(
+                [jnp.array(n_iterations_raw[i]) for i in range(len(Ks))]
+            )
+            onp.savetxt(f"{exp_name}_n_iterations_raw", onp.array(n_iterations_raw))
         if with_energy:
             df = pd.DataFrame(
                 {"size": [lx * ly for lx, ly in sizes]}
